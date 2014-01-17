@@ -18,6 +18,10 @@
 
 #include <math.h>
 
+#if defined(ART_TARGET)
+#include <cutils/properties.h>
+#endif
+
 #include "base/logging.h"
 #include "class_linker-inl.h"
 #include "common_throws.h"
@@ -219,7 +223,97 @@ static void UnstartedRuntimeJni(Thread* self, ArtMethod* method,
     Object* obj = reinterpret_cast<Object*>(args[0]);
     Object* newValue = reinterpret_cast<Object*>(args[3]);
     obj->SetFieldObject(MemberOffset((static_cast<uint64_t>(args[2]) << 32) | args[1]), newValue, false);
-  } else {
+  }
+    // Enable ART by implementing stubs for key native methods needed by OAT compiler.
+    // Without these, the device fails to boot
+    // Note that system properties are only available on the target.
+#if defined(ART_TARGET)
+    else if (name == "java.lang.String android.os.SystemProperties.native_get(java.lang.String, java.lang.String)") {
+    String* key = reinterpret_cast<Object*>(args[0])->AsString();
+    CHECK(key != NULL);
+    String* def = reinterpret_cast<Object*>(args[1])->AsString();
+    String* val = def;
+    char buf[PROPERTY_VALUE_MAX];
+    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    int len = property_get(key_bytes, buf, "");
+    if (len > 0) {
+      val = String::AllocFromModifiedUtf8(self, buf);
+    } else if (val == NULL) {
+      val = String::AllocFromModifiedUtf8(self, "");
+    }
+    result->SetL(val);
+  }
+  else if (name == "java.lang.String android.os.SystemProperties.native_get(java.lang.String)") {
+    String* key = reinterpret_cast<Object*>(args[0])->AsString();
+    CHECK(key != NULL);
+    String* val;
+    char buf[PROPERTY_VALUE_MAX];
+    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    int len = property_get(key_bytes, buf, "");
+    if (len > 0) {
+      val = String::AllocFromModifiedUtf8(self, buf);
+    } else {
+      val = String::AllocFromModifiedUtf8(self, "");
+    }
+    result->SetL(val);
+  }
+  else if (name == "int android.os.SystemProperties.native_get_int(java.lang.String, int)") {
+    String* key = reinterpret_cast<Object*>(args[0])->AsString();
+    CHECK(key != NULL);
+    jint val = args[1];
+    char buf[PROPERTY_VALUE_MAX];
+    char* end;
+    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    int len = property_get(key_bytes, buf, "");
+    if (len > 0) {
+      val = strtol(buf, &end, 0);
+      if (end == buf) {
+        val = args[1];
+      }
+    }
+    result->SetI(val);
+  }
+  else if  (name == "long android.os.SystemProperties.native_get_long(java.lang.String, long)") {
+    String* key = reinterpret_cast<Object*>(args[0])->AsString();
+    CHECK(key != NULL);
+    jlong val = args[1];
+    char buf[PROPERTY_VALUE_MAX];
+    char* end;
+    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    int len = property_get(key_bytes, buf, "");
+    if (len > 0) {
+      val = strtoll(buf, &end, 0);
+      if (end == buf) {
+        val = args[1];
+      }
+    }
+    result->SetJ(val);
+  }
+  else if  (name == "boolean android.os.SystemProperties.native_get_boolean(java.lang.String, boolean)") {
+    String* key = reinterpret_cast<Object*>(args[0])->AsString();
+    jboolean val = args[1];
+    CHECK(key != NULL);
+    char buf[PROPERTY_VALUE_MAX];
+    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    int len = property_get(key_bytes, buf, "");
+    if (len == 1) {
+      char ch = buf[0];
+      if (ch == '0' || ch == 'n') {
+        val = JNI_FALSE;
+      } else if (ch == '1' || ch == 'y') {
+        val = JNI_TRUE;
+      }
+    } else if (len > 1) {
+      if (!strcmp(buf, "no") || !strcmp(buf, "false") || !strcmp(buf, "off")) {
+        val = JNI_FALSE;
+      } else if (!strcmp(buf, "yes") || !strcmp(buf, "true") || !strcmp(buf, "on")) {
+        val = JNI_TRUE;
+      }
+    }
+    result->SetZ(val);
+  }
+#endif
+  else {
     LOG(FATAL) << "Attempt to invoke native method in non-started runtime: " << name;
   }
 }
