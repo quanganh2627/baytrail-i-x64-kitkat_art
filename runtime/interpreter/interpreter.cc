@@ -234,7 +234,8 @@ static void UnstartedRuntimeJni(Thread* self, ArtMethod* method,
     String* def = reinterpret_cast<Object*>(args[1])->AsString();
     String* val = def;
     char buf[PROPERTY_VALUE_MAX];
-    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    std::string key_string = key->ToModifiedUtf8();
+    const char* key_bytes = key_string.c_str();
     int len = property_get(key_bytes, buf, "");
     if (len > 0) {
       val = String::AllocFromModifiedUtf8(self, buf);
@@ -248,7 +249,8 @@ static void UnstartedRuntimeJni(Thread* self, ArtMethod* method,
     CHECK(key != NULL);
     String* val;
     char buf[PROPERTY_VALUE_MAX];
-    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    std::string key_string = key->ToModifiedUtf8();
+    const char* key_bytes = key_string.c_str();
     int len = property_get(key_bytes, buf, "");
     if (len > 0) {
       val = String::AllocFromModifiedUtf8(self, buf);
@@ -263,7 +265,8 @@ static void UnstartedRuntimeJni(Thread* self, ArtMethod* method,
     jint val = args[1];
     char buf[PROPERTY_VALUE_MAX];
     char* end;
-    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    std::string key_string = key->ToModifiedUtf8();
+    const char* key_bytes = key_string.c_str();
     int len = property_get(key_bytes, buf, "");
     if (len > 0) {
       val = strtol(buf, &end, 0);
@@ -279,7 +282,8 @@ static void UnstartedRuntimeJni(Thread* self, ArtMethod* method,
     jlong val = args[1];
     char buf[PROPERTY_VALUE_MAX];
     char* end;
-    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    std::string key_string = key->ToModifiedUtf8();
+    const char* key_bytes = key_string.c_str();
     int len = property_get(key_bytes, buf, "");
     if (len > 0) {
       val = strtoll(buf, &end, 0);
@@ -294,7 +298,8 @@ static void UnstartedRuntimeJni(Thread* self, ArtMethod* method,
     jboolean val = args[1];
     CHECK(key != NULL);
     char buf[PROPERTY_VALUE_MAX];
-    const char* key_bytes = key->ToModifiedUtf8().c_str();
+    std::string key_string = key->ToModifiedUtf8();
+    const char* key_bytes = key_string.c_str();
     int len = property_get(key_bytes, buf, "");
     if (len == 1) {
       char ch = buf[0];
