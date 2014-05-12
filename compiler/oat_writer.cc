@@ -403,19 +403,28 @@ size_t OatWriter::InitOatCodeMethod(size_t offset, size_t oat_class_index,
     mirror::ArtMethod* method = linker->ResolveMethod(*dex_file, method_idx, dex_cache,
                                                            NULL, NULL, invoke_type);
     CHECK(method != NULL);
-    method->SetFrameSizeInBytes(frame_size_in_bytes);
-    method->SetCoreSpillMask(core_spill_mask);
-    method->SetFpSpillMask(fp_spill_mask);
-    method->SetOatMappingTableOffset(mapping_table_offset);
-    // Don't overwrite static method trampoline
-    if (!method->IsStatic() || method->IsConstructor() ||
-        method->GetDeclaringClass()->IsInitialized()) {
-      method->SetOatCodeOffset(code_offset);
+
+    // Update method data only if it is from the same dex file
+    // Otherwise we can re-write the real compilation with skipped one
+    MethodHelper mh(method);
+    if (&mh.GetDexFile() == dex_file) {
+      method->SetFrameSizeInBytes(frame_size_in_bytes);
+      method->SetCoreSpillMask(core_spill_mask);
+      method->SetFpSpillMask(fp_spill_mask);
+      method->SetOatMappingTableOffset(mapping_table_offset);
+      // Don't overwrite static method trampoline
+      if (!method->IsStatic() || method->IsConstructor() ||
+          method->GetDeclaringClass()->IsInitialized()) {
+        method->SetOatCodeOffset(code_offset);
+      } else {
+        method->SetEntryPointFromCompiledCode(NULL);
+      }
+      method->SetOatVmapTableOffset(vmap_table_offset);
+      method->SetOatNativeGcMapOffset(gc_map_offset);
     } else {
-      method->SetEntryPointFromCompiledCode(NULL);
+      LOG(WARNING) << "Skip update of method metadata for " << PrettyMethod(method) << " due to different dex files";
     }
-    method->SetOatVmapTableOffset(vmap_table_offset);
-    method->SetOatNativeGcMapOffset(gc_map_offset);
+
   }
 
   return offset;
