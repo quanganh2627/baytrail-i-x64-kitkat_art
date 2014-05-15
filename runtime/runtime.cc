@@ -910,7 +910,8 @@ bool Runtime::Init(const Options& raw_options, bool ignore_unrecognized) {
   GetHeap()->EnableObjectValidation();
 
   CHECK_GE(GetHeap()->GetContinuousSpaces().size(), 1U);
-  if (GetHeap()->GetContinuousSpaces()[0]->IsImageSpace()) {
+  gc::space::ImageSpace* image_space = Runtime::Current()->GetHeap()->GetImageSpace();
+  if (image_space != NULL) {
     class_linker_ = ClassLinker::CreateFromImage(intern_table_);
   } else {
     CHECK(options->boot_class_path_ != NULL);
