@@ -2009,7 +2009,7 @@ void Mir2Lir::GenConstWide(RegLocation rl_dest, int64_t value) {
 }
 
 void Mir2Lir::GenSmallPackedSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   const uint16_t entries = table[1];
   // Chained cmp-and-branch.
   const int32_t* as_int32 = reinterpret_cast<const int32_t*>(&table[2]);
@@ -2052,7 +2052,7 @@ void Mir2Lir::GenSmallPackedSwitch(MIR* mir, DexOffset table_offset, RegLocation
 }
 
 void Mir2Lir::GenPackedSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   if (cu_->verbose) {
     DumpSparseSwitchTable(table);
   }
@@ -2067,7 +2067,7 @@ void Mir2Lir::GenPackedSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_s
 }
 
 void Mir2Lir::GenSmallSparseSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   const uint16_t entries = table[1];
   // Chained cmp-and-branch.
   const int32_t* keys = reinterpret_cast<const int32_t*>(&table[2]);
@@ -2082,7 +2082,7 @@ void Mir2Lir::GenSmallSparseSwitch(MIR* mir, DexOffset table_offset, RegLocation
 }
 
 void Mir2Lir::GenSparseSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   if (cu_->verbose) {
     DumpSparseSwitchTable(table);
   }
