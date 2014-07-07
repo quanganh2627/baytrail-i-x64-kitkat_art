@@ -398,8 +398,13 @@ class X86Mir2Lir : public Mir2Lir {
         return reg;
       }
     }
+#ifdef LSRA
+    RegStorage ret_val = RegStorage(RegStorage::k32BitSolo,
+                                    reg.GetReg() & RegStorage::kRegTypeMask);
+#else
     RegStorage ret_val = RegStorage(RegStorage::k32BitSolo,
                                     reg.GetRawBits() & RegStorage::kRegTypeMask);
+#endif
     DCHECK_EQ(GetRegInfo(reg)->FindMatchingView(RegisterInfo::k32SoloStorageMask)
                              ->GetReg().GetReg(),
               ret_val.GetReg());
@@ -416,17 +421,22 @@ class X86Mir2Lir : public Mir2Lir {
         return reg;
       }
     }
+#ifdef LSRA
+    RegStorage ret_val = RegStorage(RegStorage::k64BitSolo,
+                                    reg.GetReg() & RegStorage::kRegTypeMask);
+#else
     RegStorage ret_val = RegStorage(RegStorage::k64BitSolo,
                                     reg.GetRawBits() & RegStorage::kRegTypeMask);
+#endif
     DCHECK_EQ(GetRegInfo(reg)->FindMatchingView(RegisterInfo::k64SoloStorageMask)
                              ->GetReg().GetReg(),
               ret_val.GetReg());
     return ret_val;
   }
 
-  LIR* LoadBaseIndexedDisp(RegStorage r_base, RegStorage r_index, int scale, int displacement,
+  virtual LIR* LoadBaseIndexedDisp(RegStorage r_base, RegStorage r_index, int scale, int displacement,
                            RegStorage r_dest, OpSize size);
-  LIR* StoreBaseIndexedDisp(RegStorage r_base, RegStorage r_index, int scale, int displacement,
+  virtual LIR* StoreBaseIndexedDisp(RegStorage r_base, RegStorage r_index, int scale, int displacement,
                             RegStorage r_src, OpSize size, int opt_flags = 0);
 
   RegStorage GetCoreArgMappingToPhysicalReg(int core_arg_num);
@@ -825,7 +835,7 @@ class X86Mir2Lir : public Mir2Lir {
   LIR* OpCmpMemImmBranch(ConditionCode cond, RegStorage temp_reg, RegStorage base_reg,
                          int offset, int check_value, LIR* target, LIR** compare);
 
-  void GenRemFP(RegLocation rl_dest, RegLocation rl_src1, RegLocation rl_src2, bool is_double);
+  virtual void GenRemFP(RegLocation rl_dest, RegLocation rl_src1, RegLocation rl_src2, bool is_double);
 
   /*
    * Can this operation be using core registers without temporaries?
@@ -849,8 +859,8 @@ class X86Mir2Lir : public Mir2Lir {
   LIR* OpRegMem(OpKind op, RegStorage r_dest, RegStorage r_base, int offset);
   LIR* OpRegMem(OpKind op, RegStorage r_dest, RegLocation value);
   LIR* OpMemReg(OpKind op, RegLocation rl_dest, int value);
-  LIR* OpThreadMem(OpKind op, ThreadOffset<4> thread_offset);
-  LIR* OpThreadMem(OpKind op, ThreadOffset<8> thread_offset);
+  virtual LIR* OpThreadMem(OpKind op, ThreadOffset<4> thread_offset);
+  virtual LIR* OpThreadMem(OpKind op, ThreadOffset<8> thread_offset);
   void OpRegThreadMem(OpKind op, RegStorage r_dest, ThreadOffset<4> thread_offset);
   void OpRegThreadMem(OpKind op, RegStorage r_dest, ThreadOffset<8> thread_offset);
   void OpTlsCmp(ThreadOffset<4> offset, int val);
@@ -861,7 +871,7 @@ class X86Mir2Lir : public Mir2Lir {
   // Try to do a long multiplication where rl_src2 is a constant. This simplified setup might fail,
   // in which case false will be returned.
   bool GenMulLongConst(RegLocation rl_dest, RegLocation rl_src1, int64_t val, int flags);
-  void GenMulLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
+  virtual void GenMulLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
                   RegLocation rl_src2, int flags);
   void GenNotLong(RegLocation rl_dest, RegLocation rl_src);
   void GenNegLong(RegLocation rl_dest, RegLocation rl_src);

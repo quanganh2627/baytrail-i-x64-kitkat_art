@@ -366,10 +366,10 @@ const RegLocation x86_loc_c_return_ref
      RegStorage(RegStorage::k32BitSolo, rAX), INVALID_SREG, INVALID_SREG};
 const RegLocation x86_64_loc_c_return_ref
     {kLocPhysReg, 0, 0, 0, 0, 0, 1, 0, 1,
-     RegStorage(RegStorage::k64BitSolo, rAX), INVALID_SREG, INVALID_SREG};
+     RegStorage(RegStorage::k64BitSolo, r0q), INVALID_SREG, INVALID_SREG};
 const RegLocation x86_64_loc_c_return_wide
     {kLocPhysReg, 1, 0, 0, 0, 0, 0, 0, 1,
-     RegStorage(RegStorage::k64BitSolo, rAX), INVALID_SREG, INVALID_SREG};
+     RegStorage(RegStorage::k64BitSolo, r0q), INVALID_SREG, INVALID_SREG};
 const RegLocation x86_loc_c_return_float
     {kLocPhysReg, 0, 0, 0, 1, 0, 0, 0, 1,
      RegStorage(RegStorage::k32BitSolo, fr0), INVALID_SREG, INVALID_SREG};
@@ -387,6 +387,13 @@ enum X86OpCode {
   kX8632BitData = kX86First,  // data [31..0].
   kX86Bkpt,
   kX86Nop,
+  kInputParameter,
+  kRetval,
+  kSaveRegs,
+  kRestoreRegs,
+  kCallPoint,
+  kLirPhi,
+
   // Define groups of binary operations
   // MR - Memory Register  - opcode [base + disp], reg
   //             - lir operands - 0: base, 1: disp, 2: reg

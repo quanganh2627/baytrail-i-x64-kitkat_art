@@ -189,6 +189,10 @@ class Leb128Encoder {
     return *data_;
   }
 
+  void InsertRaw(const uint8_t* cur, const uint8_t* end) {
+    data_->insert(data_->end(), cur, end);
+  }
+
  protected:
   std::vector<uint8_t>* const data_;
 

@@ -28,8 +28,17 @@ class VmapTable {
   // For efficient encoding of special values, entries are adjusted by 2.
   static constexpr uint16_t kEntryAdjustment = 2u;
   static constexpr uint16_t kAdjustedFpMarker = static_cast<uint16_t>(0xffffu + kEntryAdjustment);
+  static constexpr uint32_t kMultipleVmapsMagic = 0xFFFFFFu;
 
   explicit VmapTable(const uint8_t* table) : table_(table) {
+  }
+
+  VmapTable(const uint8_t* table, uint32_t dex_pc)
+  : table_(FindCorrectTable(table, dex_pc)) {
+  }
+
+  VmapTable(const uint8_t* table, const StackVisitor *visitor)
+  : table_(FindCorrectTable(table, visitor)) {
   }
 
   // Look up nth entry, not called from performance critical code.
@@ -117,8 +126,83 @@ class VmapTable {
     return spill_shifts;
   }
 
+  bool HasMultipleVmapTables() const {
+    const uint8_t* t = table_;
+    size_t magic = DecodeUnsignedLeb128(&t);
+    return magic == kMultipleVmapsMagic;
+  }
+
+  const uint8_t* GetMultipleVmapBase() const {
+    const uint8_t* t = table_;
+    size_t magic = DecodeUnsignedLeb128(&t);
+    DCHECK_EQ(magic, kMultipleVmapsMagic);
+
+    // We have multiple tables.  Find the start of the tables.
+    DecodeUnsignedLeb128(&t);
+
+    // Tables start after the size.
+    return t;
+  }
+
+  const uint8_t* GetDexMap() const {
+    const uint8_t* t = table_;
+    size_t magic = DecodeUnsignedLeb128(&t);
+    DCHECK_EQ(magic, kMultipleVmapsMagic);
+
+    // We have multiple tables.  Find the start of the tables.
+    size_t size_of_vmaps = DecodeUnsignedLeb128(&t);
+
+    // Tables start here.
+    return t + size_of_vmaps;
+  }
+
  private:
   const uint8_t* const table_;
+
+  const uint8_t* FindCorrectTableCommon(const uint8_t* t,
+                                        const uint32_t dex_pc) {
+    // We have multiple tables.  Locate the correct one for this PC.
+    size_t size_of_vmaps = DecodeUnsignedLeb128(&t);
+    const uint8_t* first_vmap = t;
+
+    // Skip to start of mappings.
+    t += size_of_vmaps;
+    size_t num_dex_pcs = DecodeUnsignedLeb128(&t);
+    for (size_t i = 0; i < num_dex_pcs; ++i) {
+      // <DexPC, size of encoded table, encoded table>
+      size_t dex_addr = DecodeUnsignedLeb128(&t);
+      size_t offset = DecodeUnsignedLeb128(&t);
+      if (dex_addr >= dex_pc) {
+        return first_vmap + offset;
+      }
+    }
+    DCHECK(false);
+    return nullptr;
+  }
+
+  const uint8_t* FindCorrectTable(const uint8_t* table, const uint32_t dex_pc) {
+    // Find the right Vmap table based on the Dex PC.
+    // Do we have different vmap tables for each Dex PC?
+    const uint8_t* t = table;
+    size_t magic = DecodeUnsignedLeb128(&t);
+    if (magic != kMultipleVmapsMagic) {
+      return table;
+    }
+    return FindCorrectTableCommon(t, dex_pc);
+  }
+
+  const uint8_t* FindCorrectTable(const uint8_t* table,
+                                  const StackVisitor* visitor)
+                      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    // Find the right Vmap table based on the Dex PC.
+    // Do we have different vmap tables for each Dex PC?
+    const uint8_t* t = table;
+    size_t magic = DecodeUnsignedLeb128(&t);
+    if (magic != kMultipleVmapsMagic) {
+      return table;
+    }
+    return FindCorrectTableCommon(t, visitor->GetDexPc());
+  }
 };
 
 }  // namespace art

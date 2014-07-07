@@ -27,6 +27,12 @@ const X86EncodingMap X86Mir2Lir::EncodingMap[kX86Last] = {
   { kX8632BitData, kData,    IS_UNARY_OP,            { 0, 0, 0x00, 0, 0, 0, 0, 4, false }, "data",  "0x!0d" },
   { kX86Bkpt,      kNullary, NO_OPERAND | IS_BRANCH, { 0, 0, 0xCC, 0, 0, 0, 0, 0, false }, "int 3", "" },
   { kX86Nop,       kNop,     NO_OPERAND,             { 0, 0, 0x90, 0, 0, 0, 0, 0, false }, "nop",   "" },
+  { kInputParameter, kReg,   IS_UNARY_OP | REG_DEF0, { 0, 0, 0x00, 0, 0, 0, 0, 0, false }, "Param", "!0r" },
+  { kRetval,       kReg,     IS_UNARY_OP | REG_DEF0, { 0, 0, 0x00, 0, 0, 0, 0, 0, false }, "Retval", "!0r" },
+  { kSaveRegs,     kNullary, NO_OPERAND,             { 0, 0, 0x00, 0, 0, 0, 0, 0, false }, "SaveRegs", "" },
+  { kRestoreRegs,  kNullary, NO_OPERAND,             { 0, 0, 0x00, 0, 0, 0, 0, 0, false }, "RestoreRegs",  "" },
+  { kCallPoint,    kNullary, NO_OPERAND,             { 0, 0, 0x00, 0, 0, 0, 0, 0, false }, "CallPoint", "" },
+  { kLirPhi,       kNullary, NO_OPERAND | REG_DEF0,  { 0, 0, 0x00, 0, 0, 0, 0, 0, false }, "PHI",   "" },
 
 #define ENCODING_MAP(opname, mem_use, reg_def, uses_ccodes, \
                      rm8_r8, rm32_r32, \

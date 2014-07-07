@@ -151,6 +151,8 @@ typedef std::vector<uint8_t> CodeBuffer;
 struct UseDefMasks {
   const ResourceMask* use_mask;        // Resource mask for use.
   const ResourceMask* def_mask;        // Resource mask for def.
+  LIR *join;                           // Representative instruction.
+  int16_t reg;                         // Register preference.  < 0 any register. >= 0, fixed register.
 };
 
 struct AssemblyInfo {
@@ -645,7 +647,7 @@ class Mir2Lir : public Backend {
     virtual CompiledMethod* GetCompiledMethod();
     void MarkSafepointPC(LIR* inst);
     void MarkSafepointPCAfter(LIR* after);
-    void SetupResourceMasks(LIR* lir);
+    virtual inline void SetupResourceMasks(LIR* lir, bool leave_mem_ref = false);
     void SetMemRefType(LIR* lir, bool is_load, int mem_type);
     void AnnotateDalvikRegAccess(LIR* lir, int reg_id, bool is_load, bool is64bit);
     void SetupRegMask(ResourceMask* mask, int reg);
@@ -669,8 +671,8 @@ class Mir2Lir : public Backend {
     LIR* ScanLiteralPoolMethod(LIR* data_target, const MethodReference& method);
     LIR* AddWordData(LIR* *constant_list_p, int value);
     LIR* AddWideData(LIR* *constant_list_p, int val_lo, int val_hi);
-    void DumpSparseSwitchTable(const uint16_t* table);
-    void DumpPackedSwitchTable(const uint16_t* table);
+    virtual void DumpSparseSwitchTable(const uint16_t* table);
+    virtual void DumpPackedSwitchTable(const uint16_t* table);
     void MarkBoundary(DexOffset offset, const char* inst_str);
     void NopLIR(LIR* lir);
     void UnlinkLIR(LIR* lir);
@@ -683,7 +685,7 @@ class Mir2Lir : public Backend {
     void InstallFillArrayData();
     bool VerifyCatchEntries();
     void CreateMappingTables();
-    void CreateNativeGcMap();
+    virtual void CreateNativeGcMap();
     int AssignLiteralOffset(CodeOffset offset);
     int AssignSwitchTablesOffset(CodeOffset offset);
     int AssignFillArrayDataOffset(CodeOffset offset);
@@ -715,9 +717,9 @@ class Mir2Lir : public Backend {
     void DumpFpRegPool();
     void DumpRegPools();
     /* Mark a temp register as dead.  Does not affect allocation state. */
-    void Clobber(RegStorage reg);
-    void ClobberSReg(int s_reg);
-    void ClobberAliases(RegisterInfo* info, uint32_t clobber_mask);
+    virtual void Clobber(RegStorage reg);
+    virtual void ClobberSReg(int s_reg);
+    virtual void ClobberAliases(RegisterInfo* info, uint32_t clobber_mask);
     int SRegToPMap(int s_reg);
     void RecordCorePromotion(RegStorage reg, int s_reg);
     RegStorage AllocPreservedCoreReg(int s_reg);
@@ -1068,7 +1070,7 @@ class Mir2Lir : public Backend {
     virtual void StoreFinalValueWide(RegLocation rl_dest, RegLocation rl_src);
 
     // Shared by all targets - implemented in mir_to_lir.cc.
-    void CompileDalvikInstruction(MIR* mir, BasicBlock* bb, LIR* label_list);
+    virtual void CompileDalvikInstruction(MIR* mir, BasicBlock* bb, LIR* label_list);
     virtual void HandleExtendedMethodMIR(BasicBlock* bb, MIR* mir);
     bool MethodBlockCodeGen(BasicBlock* bb);
     bool SpecialMIR2LIR(const InlineMethod& special);

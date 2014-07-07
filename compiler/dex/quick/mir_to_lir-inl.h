@@ -157,8 +157,13 @@ inline void Mir2Lir::ClearRegMask(ResourceMask* mask, int reg) {
 
 /*
  * Set up the proper fields in the resource mask
+ * @param lir Instruction to modify
+ * @param leave_mem_ref If 'true', then the use and def masks for memory
+ * will be left unchanged.
+ * @note leave_mem_ref is true in LSRA when re-generating instructions with
+ * physical registers, in order to get correct use/def memory masks.
  */
-inline void Mir2Lir::SetupResourceMasks(LIR* lir) {
+void Mir2Lir::SetupResourceMasks(LIR* lir, bool leave_mem_ref) {
   int opcode = lir->opcode;
 
   if (IsPseudoLirOp(opcode)) {
@@ -185,17 +190,22 @@ inline void Mir2Lir::SetupResourceMasks(LIR* lir) {
   ResourceMask def_mask;
 
   if (flags & (IS_LOAD | IS_STORE)) {
-    /* Set memory reference type (defaults to heap, overridden by ScopedMemRefType). */
-    if (flags & IS_LOAD) {
-      use_mask.SetBit(mem_ref_type_);
+    if (leave_mem_ref) {
+      use_mask = *lir->u.m.use_mask;
+      def_mask = *lir->u.m.def_mask;
     } else {
-      /* Currently only loads can be marked as kMustNotAlias. */
-      DCHECK(mem_ref_type_ != ResourceMask::kMustNotAlias);
-    }
-    if (flags & IS_STORE) {
-      /* Literals cannot be written to. */
-      DCHECK(mem_ref_type_ != ResourceMask::kLiteral);
-      def_mask.SetBit(mem_ref_type_);
+      /* Set memory reference type (defaults to heap, overridden by ScopedMemRefType). */
+      if (flags & IS_LOAD) {
+        use_mask.SetBit(mem_ref_type_);
+      } else {
+        /* Currently only loads can be marked as kMustNotAlias. */
+        DCHECK(mem_ref_type_ != ResourceMask::kMustNotAlias);
+      }
+      if (flags & IS_STORE) {
+        /* Literals cannot be written to. */
+        DCHECK(mem_ref_type_ != ResourceMask::kLiteral);
+        def_mask.SetBit(mem_ref_type_);
+      }
     }
   }
 
