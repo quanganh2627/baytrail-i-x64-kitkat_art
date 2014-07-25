@@ -841,6 +841,9 @@ const uint32_t MIRGraph::analysis_attributes_[kMirOpLast] = {
 
   // 113 MIR_SELECT
   AN_NONE,
+
+  // 130 MirOpMemBarrier
+  AN_NONE,
 };
 
 struct MethodStats {
