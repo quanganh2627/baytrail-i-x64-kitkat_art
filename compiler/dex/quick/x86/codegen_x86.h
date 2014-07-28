@@ -125,7 +125,7 @@ class X86Mir2Lir : public Mir2Lir {
 
   void CompilerInitializeRegAlloc() OVERRIDE;
   int VectorRegisterSize() OVERRIDE;
-  int NumReservableVectorRegisters(bool fp_used) OVERRIDE;
+  int NumReservableVectorRegisters(bool long_or_fp) OVERRIDE;
 
   // Required for target - miscellaneous.
   void AssembleLIR() OVERRIDE;
@@ -455,6 +455,8 @@ class X86Mir2Lir : public Mir2Lir {
   void EmitShiftRegImm(const X86EncodingMap* entry, int32_t raw_reg, int32_t imm);
   void EmitShiftRegCl(const X86EncodingMap* entry, int32_t raw_reg, int32_t raw_cl);
   void EmitShiftMemCl(const X86EncodingMap* entry, int32_t raw_base, int32_t disp, int32_t raw_cl);
+  void EmitShiftRegRegCl(const X86EncodingMap* entry, int32_t raw_reg1, int32_t raw_reg2,
+                         int32_t raw_cl);
   void EmitShiftMemImm(const X86EncodingMap* entry, int32_t raw_base, int32_t disp, int32_t imm);
   void EmitRegCond(const X86EncodingMap* entry, int32_t raw_reg, int32_t cc);
   void EmitMemCond(const X86EncodingMap* entry, int32_t raw_base, int32_t disp, int32_t cc);
@@ -474,10 +476,13 @@ class X86Mir2Lir : public Mir2Lir {
   void GenFusedLongCmpImmBranch(BasicBlock* bb, RegLocation rl_src1,
                                 int64_t val, ConditionCode ccode);
   void GenConstWide(RegLocation rl_dest, int64_t value);
-  void GenMultiplyVectorSignedByte(BasicBlock *bb, MIR *mir);
+  void GenMultiplyVectorSignedByte(RegStorage rs_dest_src1, RegStorage rs_src2);
+  void GenMultiplyVectorLong(RegStorage rs_dest_src1, RegStorage rs_src2);
   void GenShiftByteVector(BasicBlock *bb, MIR *mir);
-  void AndMaskVectorRegister(RegStorage rs_src1, uint32_t m1, uint32_t m2, uint32_t m3, uint32_t m4);
-  void MaskVectorRegister(X86OpCode opcode, RegStorage rs_src1, uint32_t m1, uint32_t m2, uint32_t m3, uint32_t m4);
+  void AndMaskVectorRegister(RegStorage rs_src1, uint32_t m1, uint32_t m2, uint32_t m3,
+                             uint32_t m4);
+  void MaskVectorRegister(X86OpCode opcode, RegStorage rs_src1, uint32_t m1, uint32_t m2,
+                          uint32_t m3, uint32_t m4);
   void AppendOpcodeWithConst(X86OpCode opcode, int reg, MIR* mir);
 
   static bool ProvidesFullMemoryBarrier(X86OpCode opcode);
@@ -514,20 +519,18 @@ class X86Mir2Lir : public Mir2Lir {
   bool GenInlinedIndexOf(CallInfo* info, bool zero_based);
 
   /**
-   * @brief Reserve a fixed number of vector  registers from the register pool
-   * @details The mir->dalvikInsn.vA specifies an N such that vector registers
-   * [0..N-1] are removed from the temporary pool. The caller must call
-   * ReturnVectorRegisters before calling ReserveVectorRegisters again.
-   * Also sets the num_reserved_vector_regs_ to the specified value
-   * @param mir whose vA specifies the number of registers to reserve
+   * @brief Used to reserve a range of vector registers.
+   * @see kMirOpReserveVectorRegisters
+   * @param mir The extended MIR for reservation.
    */
   void ReserveVectorRegisters(MIR* mir);
 
   /**
-   * @brief Return all the reserved vector registers to the temp pool
-   * @details Returns [0..num_reserved_vector_regs_]
+   * @brief Used to return a range of vector registers.
+   * @see kMirOpReturnVectorRegisters
+   * @param mir The extended MIR for returning vector regs.
    */
-  void ReturnVectorRegisters();
+  void ReturnVectorRegisters(MIR* mir);
 
   /*
    * @brief Load 128 bit constant into vector register.
@@ -549,7 +552,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenMoveVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed multiply of units in two vector registers: vB = vB .* @note vC using vA to know the type of the vector.
+   * @brief Packed multiply of units in two vector registers: vB = vB .* @note vC using vA to know
+   * the type of the vector.
    * @param bb The basic block in which the MIR is from.
    * @param mir The MIR whose opcode is kMirConstVector.
    * @note vA: TypeSize
@@ -559,7 +563,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenMultiplyVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed addition of units in two vector registers: vB = vB .+ vC using vA to know the type of the vector.
+   * @brief Packed addition of units in two vector registers: vB = vB .+ vC using vA to know the
+   * type of the vector.
    * @param bb The basic block in which the MIR is from.
    * @param mir The MIR whose opcode is kMirConstVector.
    * @note vA: TypeSize
@@ -569,7 +574,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenAddVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed subtraction of units in two vector registers: vB = vB .- vC using vA to know the type of the vector.
+   * @brief Packed subtraction of units in two vector registers: vB = vB .- vC using vA to know the
+   * type of the vector.
    * @param bb The basic block in which the MIR is from.
    * @param mir The MIR whose opcode is kMirConstVector.
    * @note vA: TypeSize
@@ -579,7 +585,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenSubtractVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed shift left of units in two vector registers: vB = vB .<< vC using vA to know the type of the vector.
+   * @brief Packed shift left of units in two vector registers: vB = vB .<< vC using vA to know the
+   * type of the vector.
    * @param bb The basic block in which the MIR is from.
    * @param mir The MIR whose opcode is kMirConstVector.
    * @note vA: TypeSize
@@ -589,7 +596,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenShiftLeftVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed signed shift right of units in two vector registers: vB = vB .>> vC using vA to know the type of the vector.
+   * @brief Packed signed shift right of units in two vector registers: vB = vB .>> vC using vA to
+   * know the type of the vector.
    * @param bb The basic block in which the MIR is from.
    * @param mir The MIR whose opcode is kMirConstVector.
    * @note vA: TypeSize
@@ -599,7 +607,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenSignedShiftRightVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed unsigned shift right of units in two vector registers: vB = vB .>>> vC using vA to know the type of the vector.
+   * @brief Packed unsigned shift right of units in two vector registers: vB = vB .>>> vC using vA
+   * to know the type of the vector.
    * @param bb The basic block in which the MIR is from..
    * @param mir The MIR whose opcode is kMirConstVector.
    * @note vA: TypeSize
@@ -609,7 +618,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenUnsignedShiftRightVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed bitwise and of units in two vector registers: vB = vB .& vC using vA to know the type of the vector.
+   * @brief Packed bitwise and of units in two vector registers: vB = vB .& vC using vA to know the
+   * type of the vector.
    * @note vA: TypeSize
    * @note vB: destination and source
    * @note vC: source
@@ -617,7 +627,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenAndVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed bitwise or of units in two vector registers: vB = vB .| vC using vA to know the type of the vector.
+   * @brief Packed bitwise or of units in two vector registers: vB = vB .| vC using vA to know the
+   * type of the vector.
    * @param bb The basic block in which the MIR is from.
    * @param mir The MIR whose opcode is kMirConstVector.
    * @note vA: TypeSize
@@ -627,7 +638,8 @@ class X86Mir2Lir : public Mir2Lir {
   void GenOrVector(BasicBlock *bb, MIR *mir);
 
   /*
-   * @brief Packed bitwise xor of units in two vector registers: vB = vB .^ vC using vA to know the type of the vector.
+   * @brief Packed bitwise xor of units in two vector registers: vB = vB .^ vC using vA to know the
+   * type of the vector.
    * @param bb The basic block in which the MIR is from.
    * @param mir The MIR whose opcode is kMirConstVector.
    * @note vA: TypeSize
@@ -667,6 +679,20 @@ class X86Mir2Lir : public Mir2Lir {
    * @note vC: source VR (not vector register).
    */
   void GenSetVector(BasicBlock *bb, MIR *mir);
+
+  /**
+   * @brief Used to generate code for kMirOpPackedArrayGet.
+   * @param bb The basic block of MIR.
+   * @param mir The mir whose opcode is kMirOpPackedArrayGet.
+   */
+  void GenPackedArrayGet(BasicBlock *bb, MIR *mir);
+
+  /**
+   * @brief Used to generate code for kMirOpPackedArrayPut.
+   * @param bb The basic block of MIR.
+   * @param mir The mir whose opcode is kMirOpPackedArrayPut.
+   */
+  void GenPackedArrayPut(BasicBlock *bb, MIR *mir);
 
   /*
    * @brief Generate code for a vector opcode.
@@ -921,20 +947,20 @@ class X86Mir2Lir : public Mir2Lir {
   LIR* stack_increment_;
 
   // The list of const vector literals.
-  LIR *const_vectors_;
+  LIR* const_vectors_;
 
   /*
    * @brief Search for a matching vector literal
-   * @param mir A kMirOpConst128b MIR instruction to match.
+   * @param constants An array of size 4 which contains all of 32-bit constants.
    * @returns pointer to matching LIR constant, or nullptr if not found.
    */
-  LIR *ScanVectorLiteral(MIR *mir);
+  LIR* ScanVectorLiteral(int32_t* constants);
 
   /*
    * @brief Add a constant vector literal
-   * @param mir A kMirOpConst128b MIR instruction to match.
+   * @param constants An array of size 4 which contains all of 32-bit constants.
    */
-  LIR *AddVectorLiteral(MIR *mir);
+  LIR* AddVectorLiteral(int32_t* constants);
 
   InToRegStorageMapping in_to_reg_storage_mapping_;
 
@@ -956,6 +982,9 @@ class X86Mir2Lir : public Mir2Lir {
  private:
   // The number of vector registers [0..N] reserved by a call to ReserveVectorRegisters
   int num_reserved_vector_regs_;
+
+  void SwapBits(RegStorage result_reg, int shift, int32_t value);
+  void SwapBits64(RegStorage result_reg, int shift, int64_t value);
 };
 
 }  // namespace art
