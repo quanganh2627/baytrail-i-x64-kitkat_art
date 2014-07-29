@@ -72,6 +72,24 @@ namespace art {
  * records.
  */
 
+#if LSRA
+  /*
+   * The Linear Scan Register Allocator works on Symbolic Registers.  The BE
+   * code generation generates a very large number of symblic registers, and
+   * then allocates them to hardware registers at the end of the compilation.
+   *
+   * In order to do this, while still using the infrastructure that in the
+   * X86 backend (to prevent rewriting eveything), we need changes to the
+   * RegStorage class.  The class now has to handle 32 bits worth of register
+   * numbers, or two such 32 bit registers for handling 64 bit quantities in
+   * 32 bit mode.
+   *
+   * If LSRA is #defined, then the alternate implementation be used.
+   * Unfortunately, it is not possible to cram all this information down into
+   * 16 bits, as is done without LSRA defined. :-(
+   */
+#endif
+
 class RegStorage {
  public:
   enum RegStorageKind {
@@ -104,6 +122,30 @@ class RegStorage {
   static const uint16_t kHighRegMask = (kHighRegNumMask << kHighRegShift);
 
   // Reg is [F][LLLLL], will override any existing shape and use rs_kind.
+#ifdef LSRA
+  constexpr RegStorage(RegStorageKind rs_kind, int reg)
+      : reg_(
+          DCHECK_CONSTEXPR(((rs_kind & kShapeMask) != kInvalid), , 0u)
+          DCHECK_CONSTEXPR(((rs_kind & kShapeMask) != k64BitPair), , 0u)
+          IsHardwareReg(reg) ? (kValid | rs_kind | (reg & kShapeTypeMask))
+                             : (kValid | rs_kind)),
+        low_reg_(IsHardwareReg(reg) ? (reg & kRegNumMask) : reg),
+        high_reg_(-1) {
+  }
+  constexpr RegStorage(RegStorageKind rs_kind, int low_reg, int high_reg)
+      : reg_(
+          DCHECK_CONSTEXPR((rs_kind == k64BitPair), << rs_kind, 0u)
+          kValid | rs_kind),
+        low_reg_(low_reg),
+        high_reg_(high_reg) {
+  }
+  explicit constexpr RegStorage(uint16_t val)
+      : reg_(val & (kValidMask|kShapeTypeMask)),
+        low_reg_(val & kRegNumMask),
+        high_reg_(-1) {
+  }
+  RegStorage() : reg_(kInvalid), low_reg_(-1), high_reg_(-1) {}
+#else
   constexpr RegStorage(RegStorageKind rs_kind, int reg)
       : reg_(
           DCHECK_CONSTEXPR(rs_kind != k64BitPair, , 0u)
@@ -122,6 +164,7 @@ class RegStorage {
   }
   constexpr explicit RegStorage(uint16_t val) : reg_(val) {}
   RegStorage() : reg_(kInvalid) {}
+#endif
 
   // We do not provide a general operator overload for equality of reg storage, as this is
   // dangerous in the case of architectures with multiple views, and the naming ExactEquals
@@ -131,12 +174,29 @@ class RegStorage {
   // If you know what you are doing, include reg_storage_eq.h, which defines == and != for brevity.
 
   bool ExactlyEquals(const RegStorage& rhs) const {
+#ifdef LSRA
+    return (reg_ == rhs.GetRawBits() && low_reg_ == rhs.low_reg_ &&
+            high_reg_ == rhs.high_reg_);
+#else
     return (reg_ == rhs.GetRawBits());
+#endif
   }
 
   bool NotExactlyEquals(const RegStorage& rhs) const {
+#ifdef LSRA
+    return (reg_ != rhs.GetRawBits() || low_reg_ != rhs.low_reg_ ||
+            high_reg_ != rhs.high_reg_);
+#else
     return (reg_ != rhs.GetRawBits());
+#endif
   }
+
+#ifdef LSRA
+  static constexpr bool IsHardwareReg(int32_t reg) {
+    return reg >= 0 && reg <= kRegValMask;
+  }
+
+#endif
 
   constexpr bool Valid() const {
     return ((reg_ & kValidMask) == kValid);
@@ -207,54 +267,120 @@ class RegStorage {
   // Used to retrieve either the low register of a pair, or the only register.
   int GetReg() const {
     DCHECK(!IsPair()) << "reg_ = 0x" << std::hex << reg_;
+#ifdef LSRA
+    if (!Valid()) {
+      return kInvalidRegVal;
+    }
+
+    if (IsHardwareReg(low_reg_)) {
+      // Hardware register.  We want the type info too.
+      return (low_reg_ & kRegValMask) | (reg_ & kShapeTypeMask);
+    }
+
+    return low_reg_;
+#else
     return Valid() ? (reg_ & kRegValMask) : kInvalidRegVal;
+#endif
   }
 
   // Sets shape, type and num of solo.
   void SetReg(int reg) {
     DCHECK(Valid());
     DCHECK(!IsPair());
+#ifdef LSRA
+    low_reg_ = reg;
+#else
     reg_ = (reg_ & ~kRegValMask) | reg;
+#endif
   }
 
   // Set the reg number and type only, target remain 64-bit pair.
   void SetLowReg(int reg) {
     DCHECK(IsPair());
+#ifdef LSRA
+    low_reg_ = reg;
+#else
     reg_ = (reg_ & ~kRegTypeMask) | (reg & kRegTypeMask);
+#endif
   }
 
   // Retrieve the least significant register of a pair and return as 32-bit solo.
   int GetLowReg() const {
     DCHECK(IsPair());
+#ifdef LSRA
+    if (IsHardwareReg(low_reg_)) {
+      // Hardware register.  We want the type info too.
+      return (low_reg_ & kRegTypeMask) | k32BitSolo;
+    }
+
+    return low_reg_;
+#else
     return ((reg_ & kRegTypeMask) | k32BitSolo);
+#endif
   }
 
   // Create a stand-alone RegStorage from the low reg of a pair.
   RegStorage GetLow() const {
     DCHECK(IsPair());
+#ifdef LSRA
+    if (IsHardwareReg(low_reg_)) {
+      // Hardware register.
+      return RegStorage(k32BitSolo, low_reg_ & kRegTypeMask);
+    }
+
+    return RegStorage(k32BitSolo, low_reg_);
+#else
     return RegStorage(k32BitSolo, reg_ & kRegTypeMask);
+#endif
   }
 
   // Retrieve the most significant register of a pair.
   int GetHighReg() const {
     DCHECK(IsPair());
+#ifdef LSRA
+    if (IsHardwareReg(high_reg_)) {
+      // Hardware register.
+      return (high_reg_ & kRegTypeMask) | k32BitSolo;
+    }
+
+    return high_reg_;
+#else
     return k32BitSolo | ((reg_ & kHighRegMask) >> kHighRegShift) | (reg_ & kFloatingPoint);
+#endif
   }
 
   // Create a stand-alone RegStorage from the high reg of a pair.
   RegStorage GetHigh() const {
     DCHECK(IsPair());
+#ifdef LSRA
+    if (IsHardwareReg(high_reg_)) {
+      // Hardware register.
+      return RegStorage(k32BitSolo, high_reg_ & kRegTypeMask);
+    }
+
+    return RegStorage(k32BitSolo, high_reg_);
+#else
     return RegStorage(kValid | GetHighReg());
+#endif
   }
 
   void SetHighReg(int reg) {
     DCHECK(IsPair());
+#ifdef LSRA
+    high_reg_ = reg;
+    DCHECK_EQ(GetHighReg(), reg);
+#else
     reg_ = (reg_ & ~kHighRegMask) | ((reg & kHighRegNumMask) << kHighRegShift);
+#endif
   }
 
   // Return the register number of low or solo.
   constexpr int GetRegNum() const {
+#ifdef LSRA
+    return IsHardwareReg(low_reg_) ? (low_reg_ & kRegNumMask) : low_reg_;
+#else
     return reg_ & kRegNumMask;
+#endif
   }
 
   // Is register number in 0..7?
@@ -286,27 +412,67 @@ class RegStorage {
 
   // Create a 32-bit solo.
   static RegStorage Solo32(int reg_num) {
+#ifdef LSRA
+    return IsHardwareReg(reg_num)
+      ? RegStorage(
+          static_cast<RegStorageKind>(kValid | k32BitSolo | (reg_num & kFloatingPoint)),
+          (reg_num & kRegTypeMask))
+      : RegStorage(static_cast<RegStorageKind>(kValid | k32BitSolo), reg_num);
+#else
     return RegStorage(k32BitSolo, reg_num & kRegTypeMask);
+#endif
   }
 
   // Create a floating point 32-bit solo.
   static constexpr RegStorage FloatSolo32(int reg_num) {
+#ifdef LSRA
+    return IsHardwareReg(reg_num)
+      ? RegStorage(static_cast<RegStorageKind>(kValid | k32BitSolo | kFloatingPoint),
+                        (reg_num & kRegTypeMask) | kFloatingPoint)
+      : RegStorage(static_cast<RegStorageKind>(kValid | k32BitSolo | kFloatingPoint),
+                      reg_num);
+#else
     return RegStorage(k32BitSolo, (reg_num & kRegNumMask) | kFloatingPoint);
+#endif
   }
 
   // Create a 128-bit solo.
   static constexpr RegStorage Solo128(int reg_num) {
+#ifdef LSRA
+    return IsHardwareReg(reg_num)
+      ? RegStorage(
+          static_cast<RegStorageKind>(kValid | k128BitSolo | (reg_num & kFloatingPoint)),
+          (reg_num & kRegTypeMask))
+      : RegStorage(static_cast<RegStorageKind>(kValid | k128BitSolo), reg_num);
+#else
     return RegStorage(k128BitSolo, reg_num & kRegTypeMask);
+#endif
   }
 
   // Create a 64-bit solo.
   static constexpr RegStorage Solo64(int reg_num) {
+#ifdef LSRA
+    return IsHardwareReg(reg_num)
+      ? RegStorage(
+          static_cast<RegStorageKind>(kValid | k64BitSolo | (reg_num & kFloatingPoint)),
+          (reg_num & kRegTypeMask))
+      : RegStorage(static_cast<RegStorageKind>(kValid | k64BitSolo), reg_num);
+#else
     return RegStorage(k64BitSolo, reg_num & kRegTypeMask);
+#endif
   }
 
   // Create a floating point 64-bit solo.
   static RegStorage FloatSolo64(int reg_num) {
+#ifdef LSRA
+    return IsHardwareReg(reg_num)
+      ? RegStorage(static_cast<RegStorageKind>(kValid | k64BitSolo | kFloatingPoint),
+                        (reg_num & kRegTypeMask) | kFloatingPoint)
+      : RegStorage(static_cast<RegStorageKind>(kValid | k64BitSolo | kFloatingPoint),
+                      reg_num);
+#else
     return RegStorage(k64BitSolo, (reg_num & kRegNumMask) | kFloatingPoint);
+#endif
   }
 
   static constexpr RegStorage InvalidReg() {
@@ -338,6 +504,10 @@ class RegStorage {
 
  private:
   uint16_t reg_;
+#ifdef LSRA
+  int32_t low_reg_;
+  int32_t high_reg_;
+#endif
 };
 
 }  // namespace art
