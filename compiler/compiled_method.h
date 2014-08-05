@@ -123,7 +123,8 @@ class CompiledMethod : public CompiledCode {
                  const ArrayRef<const uint8_t>& quick_code,
                  const size_t frame_size_in_bytes,
                  const uint32_t core_spill_mask,
-                 const uint32_t fp_spill_mask);
+                 const uint32_t fp_spill_mask,
+                 const ArrayRef<const uint8_t>& cfi_info);
 
   // Constructs a CompiledMethod for the Portable compiler.
   CompiledMethod(CompilerDriver* driver, InstructionSet instruction_set, const std::string& code,
@@ -151,7 +152,8 @@ class CompiledMethod : public CompiledCode {
                                                  const ArrayRef<const uint8_t>& quick_code,
                                                  const size_t frame_size_in_bytes,
                                                  const uint32_t core_spill_mask,
-                                                 const uint32_t fp_spill_mask);
+                                                 const uint32_t fp_spill_mask,
+                                                 const ArrayRef<const uint8_t>& cfi_info);
 
   static void ReleaseSwapAllocatedCompiledMethod(CompilerDriver* driver, CompiledMethod* m);
 

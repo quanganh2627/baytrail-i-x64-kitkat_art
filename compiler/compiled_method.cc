@@ -163,11 +163,12 @@ CompiledMethod::CompiledMethod(CompilerDriver* driver,
                                const ArrayRef<const uint8_t>& code,
                                const size_t frame_size_in_bytes,
                                const uint32_t core_spill_mask,
-                               const uint32_t fp_spill_mask)
+                               const uint32_t fp_spill_mask,
+                               const ArrayRef<const uint8_t>& cfi_info)
     : CompiledCode(driver, instruction_set, code),
       frame_size_in_bytes_(frame_size_in_bytes),
       core_spill_mask_(core_spill_mask), fp_spill_mask_(fp_spill_mask),
-      cfi_info_(nullptr) {
+      cfi_info_(driver->DeduplicateCFIInfo(cfi_info)) {
   mapping_table_ = driver->DeduplicateMappingTable(ArrayRef<const uint8_t>());
   vmap_table_ = driver->DeduplicateVMapTable(ArrayRef<const uint8_t>());
   gc_map_ = driver->DeduplicateGCMap(ArrayRef<const uint8_t>());
@@ -217,11 +218,12 @@ CompiledMethod* CompiledMethod::SwapAllocCompiledMethod(CompilerDriver* driver,
                                                         const ArrayRef<const uint8_t>& quick_code,
                                                         const size_t frame_size_in_bytes,
                                                         const uint32_t core_spill_mask,
-                                                        const uint32_t fp_spill_mask) {
+                                                        const uint32_t fp_spill_mask,
+                                                        const ArrayRef<const uint8_t>& cfi_info) {
   SwapAllocator<CompiledMethod> alloc(driver->GetSwapSpaceAllocator());
   CompiledMethod* ret = alloc.allocate(1);
   alloc.construct(ret, driver, instruction_set, quick_code, frame_size_in_bytes, core_spill_mask,
-                  fp_spill_mask);
+                  fp_spill_mask, cfi_info);
   return ret;
 }
 
