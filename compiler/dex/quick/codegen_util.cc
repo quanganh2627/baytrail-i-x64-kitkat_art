@@ -1097,7 +1097,7 @@ CompiledMethod* Mir2Lir::GetCompiledMethod() {
     vmap_encoder.PushBackUnsigned(0u);  // Size is 0.
   }
 
-  std::unique_ptr<std::vector<uint8_t>> cfi_info(ReturnCallFrameInformation());
+  std::unique_ptr<std::vector<uint8_t>> cfi_info(ReturnFrameDescriptionEntry());
   ArrayRef<const uint8_t> cfi_ref;
   if (cfi_info.get() != nullptr) {
     cfi_ref = ArrayRef<const uint8_t>(*cfi_info);
@@ -1278,7 +1278,7 @@ void Mir2Lir::LoadString(uint32_t string_idx, RegStorage target_reg) {
   AppendLIR(load_pc_rel);
 }
 
-std::vector<uint8_t>* Mir2Lir::ReturnCallFrameInformation() {
+std::vector<uint8_t>* Mir2Lir::ReturnFrameDescriptionEntry() {
   // Default case is to do nothing.
   return nullptr;
 }
