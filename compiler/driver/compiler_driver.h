@@ -400,10 +400,6 @@ class CompilerDriver {
     return dump_passes_;
   }
 
-  bool DidIncludeDebugSymbols() const {
-    return compiler_options_->GetIncludeDebugSymbols();
-  }
-
   CumulativeLogger* GetTimingsLogger() const {
     return timings_logger_;
   }
@@ -597,14 +593,6 @@ class CompilerDriver {
   std::vector<uint8_t>* DeduplicateGCMap(const std::vector<uint8_t>& code);
   std::vector<uint8_t>* DeduplicateCFIInfo(const std::vector<uint8_t>* cfi_info);
 
-  /*
-   * @brief return the pointer to the Call Frame Information.
-   * @return pointer to call frame information for this compilation.
-   */
-  std::vector<uint8_t>* GetCallFrameInformation() const {
-    return cfi_info_.get();
-  }
-
   ProfileFile profile_file_;
   bool profile_present_;
 
@@ -774,9 +762,6 @@ class CompilerDriver {
   CompilerGetMethodCodeAddrFn compiler_get_method_code_addr_;
 
   bool support_boot_image_fixup_;
-
-  // Call Frame Information, which might be generated to help stack tracebacks.
-  std::unique_ptr<std::vector<uint8_t>> cfi_info_;
 
   // DeDuplication data structures, these own the corresponding byte arrays.
   class DedupeHashFunc {
