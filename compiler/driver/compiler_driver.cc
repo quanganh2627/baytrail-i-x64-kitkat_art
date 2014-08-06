@@ -365,7 +365,6 @@ CompilerDriver::CompilerDriver(const CompilerOptions* compiler_options,
       compiler_enable_auto_elf_loading_(nullptr),
       compiler_get_method_code_addr_(nullptr),
       support_boot_image_fixup_(instruction_set != kMips),
-      cfi_info_(nullptr),
       // Use actual deduping only if we don't use swap.
       dedupe_code_("dedupe code", *swap_space_allocator_),
       dedupe_mapping_table_("dedupe mapping table", *swap_space_allocator_),
@@ -387,11 +386,6 @@ CompilerDriver::CompilerDriver(const CompilerOptions* compiler_options,
     CHECK(image_classes_.get() != nullptr);
   } else {
     CHECK(image_classes_.get() == nullptr);
-  }
-
-  // Are we generating CFI information?
-  if (compiler_options->GetGenerateGDBInformation()) {
-    cfi_info_.reset(compiler_->GetCallFrameInformationInitialization(*this));
   }
 
   // Read the profile file if one is provided.
