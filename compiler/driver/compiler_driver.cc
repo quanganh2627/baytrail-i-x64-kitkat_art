@@ -356,6 +356,7 @@ CompilerDriver::CompilerDriver(const CompilerOptions* compiler_options,
       compiler_get_method_code_addr_(nullptr),
       support_boot_image_fixup_(instruction_set != kMips),
       dedupe_code_("dedupe code"),
+      dedupe_src_mapping_table_("dedupe source mapping table"),
       dedupe_mapping_table_("dedupe mapping table"),
       dedupe_vmap_table_("dedupe vmap table"),
       dedupe_gc_map_("dedupe gc map"),
@@ -390,6 +391,10 @@ CompilerDriver::CompilerDriver(const CompilerOptions* compiler_options,
 
 std::vector<uint8_t>* CompilerDriver::DeduplicateCode(const std::vector<uint8_t>& code) {
   return dedupe_code_.Add(Thread::Current(), code);
+}
+
+SrcMap* CompilerDriver::DeduplicateSrcMappingTable(const SrcMap& src_map) {
+  return dedupe_src_mapping_table_.Add(Thread::Current(), src_map);
 }
 
 std::vector<uint8_t>* CompilerDriver::DeduplicateMappingTable(const std::vector<uint8_t>& code) {
