@@ -48,6 +48,7 @@ LIBART_COMPILER_SRC_FILES := \
 	dex/quick/mips/target_mips.cc \
 	dex/quick/mips/utility_mips.cc \
 	dex/quick/mir_to_lir.cc \
+	dex/quick/quick_compiler.cc \
 	dex/quick/ralloc_util.cc \
 	dex/quick/resource_mask.cc \
 	dex/quick/x86/assemble_x86.cc \
@@ -62,6 +63,7 @@ LIBART_COMPILER_SRC_FILES := \
 	dex/mir_method_info.cc \
 	dex/mir_optimization.cc \
 	dex/bb_optimizations.cc \
+	dex/compiler_ir.cc \
 	dex/post_opt_passes.cc \
 	dex/pass_driver_me_opts.cc \
 	dex/pass_driver_me_post_opt.cc \
@@ -82,6 +84,7 @@ LIBART_COMPILER_SRC_FILES := \
 	jni/quick/x86_64/calling_convention_x86_64.cc \
 	jni/quick/calling_convention.cc \
 	jni/quick/jni_compiler.cc \
+	llvm/llvm_compiler.cc \
 	optimizing/builder.cc \
 	optimizing/code_generator.cc \
 	optimizing/code_generator_arm.cc \
@@ -117,7 +120,6 @@ LIBART_COMPILER_SRC_FILES := \
 	utils/scoped_arena_allocator.cc \
 	utils/swap_space.cc \
 	buffered_output_stream.cc \
-	compilers.cc \
 	compiler.cc \
 	elf_fixup.cc \
 	elf_patcher.cc \
