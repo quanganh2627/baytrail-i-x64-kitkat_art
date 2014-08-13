@@ -78,20 +78,6 @@ enum DexToDexCompilationLevel {
   kOptimize               // Perform required transformation and peep-hole optimizations.
 };
 
-// Thread-local storage compiler worker threads
-class CompilerTls {
-  public:
-    CompilerTls() : llvm_info_(nullptr) {}
-    ~CompilerTls() {}
-
-    void* GetLLVMInfo() { return llvm_info_; }
-
-    void SetLLVMInfo(void* llvm_info) { llvm_info_ = llvm_info; }
-
-  private:
-    void* llvm_info_;
-};
-
 static constexpr bool kUseMurmur3Hash = true;
 
 class CompilerDriver {
