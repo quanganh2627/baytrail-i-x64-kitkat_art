@@ -898,8 +898,8 @@ class CompilerDriver {
         return hash;
       } else {
         size_t hash = 0x811c9dc5;
-        for (uint8_t b : array) {
-          hash = (hash * 16777619) ^ b;
+        for (auto b : array) {
+          hash = (hash * 16777619) ^ static_cast<uint8_t>(b);
         }
         hash += hash << 13;
         hash ^= hash >> 7;
