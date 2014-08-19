@@ -108,13 +108,19 @@ class SrcMapElem {
   uint32_t from_;
   int32_t to_;
 
-  bool operator<(const SrcMapElem& sme) const {
-    uint64_t lhs = (static_cast<uint64_t>(from_) << 32) + to_;
-    uint64_t rhs = (static_cast<uint64_t>(sme.from_) << 32) + sme.to_;
-    return lhs < rhs;
+  explicit operator int64_t() const {
+    return (static_cast<int64_t>(to_) << 32) | from_;
   }
 
-  operator uint8_t() const {
+  bool operator<(const SrcMapElem& sme) const {
+    return int64_t(*this) < int64_t(sme);
+  }
+
+  bool operator==(const SrcMapElem& sme) const {
+    return int64_t(*this) == int64_t(sme);
+   }
+ 
+  explicit operator uint8_t() const {
     return static_cast<uint8_t>(from_ + to_);
   }
 };
