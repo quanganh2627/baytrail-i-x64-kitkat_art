@@ -56,6 +56,14 @@ class Iteration {
   const std::vector<uint64_t>& GetPauseTimes() const {
     return pause_times_;
   }
+  // Returns mark time.
+  uint64_t GetMarkTime() const {
+    return mark_time_;
+  }
+  // Returns sweep time.
+  uint64_t GetSweepTime() const {
+    return sweep_time_;
+  }
   TimingLogger* GetTimings() {
     return &timings_;
   }
@@ -100,6 +108,9 @@ class Iteration {
   ObjectBytePair freed_;
   ObjectBytePair freed_los_;
   std::vector<uint64_t> pause_times_;
+  // Mark/sweep times for gc profiling.
+  uint64_t mark_time_;
+  uint64_t sweep_time_;
 
   friend class GarbageCollector;
   DISALLOW_COPY_AND_ASSIGN(Iteration);
@@ -135,6 +146,9 @@ class GarbageCollector {
     return heap_;
   }
   void RegisterPause(uint64_t nano_length);
+  // Register times for gc profiling.
+  void RegisterMark(uint64_t nano_length);
+  void RegisterSweep(uint64_t nano_length);
   const CumulativeLogger& GetCumulativeTimings() const {
     return cumulative_timings_;
   }

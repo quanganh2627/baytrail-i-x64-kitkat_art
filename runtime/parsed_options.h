@@ -107,6 +107,15 @@ class ParsedOptions {
   // Minimal interval allowed between two homogeneous space compactions caused by OOM.
   uint64_t min_interval_homogeneous_space_compaction_by_oom_;
 
+  // Enable gc profiling.
+  bool enable_gcprofile_;
+  // Dir path for saving gc profile data, used with setprop "-XGcProfileDir:filename".
+  std::string gcprofile_dir_;
+  // Enable success allocation profile.
+  bool enable_succ_alloc_profile_;
+  // For gcprofiling at process start up. combined with "-XX:GcProfile" option.
+  bool enable_gcprofile_at_start_;
+
  private:
   ParsedOptions() {}
 

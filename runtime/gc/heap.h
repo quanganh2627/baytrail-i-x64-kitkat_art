@@ -613,6 +613,12 @@ class Heap {
   // Request asynchronous GC.
   void RequestConcurrentGC(Thread* self) LOCKS_EXCLUDED(pending_task_lock_);
 
+  void GCProfileSetDir(const std::string& dir);
+  void GCProfileStart();
+  void GCProfileEnd(bool drop_result);
+  void GCProfileEnableSuccAllocProfile(bool enable);
+  bool GCProfileRunning();
+
  private:
   class ConcurrentGCTask;
   class CollectorTransitionTask;

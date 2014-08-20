@@ -667,6 +667,16 @@ bool ParsedOptions::Parse(const RuntimeOptions& options, bool ignore_unrecognize
                (option == "-Xjitsuspendpoll") ||
                StartsWith(option, "-XX:mainThreadStackSize=")) {
       // Ignored for backwards compatibility.
+    } else if (option == "-XX:GcProfile") {
+      enable_gcprofile_ = true;
+    } else if (StartsWith(option, "-XGcProfileDir:")) {
+      if (!ParseStringAfterChar(option, ':', &gcprofile_dir_)) {
+        return false;
+      }
+    } else if (option == "-XX:GcProfAlloc") {
+      enable_succ_alloc_profile_ = true;
+    } else if (option == "-XX:GcProfAtStart") {
+      enable_gcprofile_at_start_ = true;
     } else if (!ignore_unrecognized) {
       Usage("Unrecognized option %s\n", option.c_str());
       return false;
@@ -853,6 +863,10 @@ void ParsedOptions::Usage(const char* fmt, ...) {
   UsageMessage(stream, "  -Xjitdisableopt\n");
   UsageMessage(stream, "  -Xjitsuspendpoll\n");
   UsageMessage(stream, "  -XX:mainThreadStackSize=N\n");
+  UsageMessage(stream, "  -XX:GcProfile\n");
+  UsageMessage(stream, "  -XGcProfileDir:dirname\n");
+  UsageMessage(stream, "  -XX:GcProfAlloc\n");
+  UsageMessage(stream, "  -XX:GcProfAtStart\n");
   UsageMessage(stream, "\n");
 
   Exit((error) ? 1 : 0);

@@ -61,6 +61,7 @@ LIBART_COMMON_SRC_FILES := \
   gc/collector/sticky_mark_sweep.cc \
   gc/gc_cause.cc \
   gc/heap.cc \
+  gc/gcprofiler.cc \
   gc/reference_processor.cc \
   gc/reference_queue.cc \
   gc/space/bump_pointer_space.cc \
@@ -304,6 +305,7 @@ LIBART_ENUM_OPERATOR_OUT_HEADER_FILES := \
   gc/collector_type.h \
   gc/space/space.h \
   gc/heap.h \
+  gc/gcprofiler.h \
   indirect_reference_table.h \
   instruction_set.h \
   invoke_type.h \
