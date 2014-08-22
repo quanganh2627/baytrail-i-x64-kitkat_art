@@ -21,6 +21,7 @@
 #include "driver/compiler_driver.h"
 #include "llvm/llvm_compiler.h"
 #include "optimizing/optimizing_compiler.h"
+#include "sha_version.h"
 
 namespace art {
 
@@ -77,6 +78,10 @@ Compiler* Compiler::Create(CompilerDriver* driver, Compiler::Kind kind) {
       LOG(FATAL) << "UNREACHABLE";
   }
   return nullptr;
+}
+
+const char* Compiler::GetSHAVersion() {
+  return SHA_ART_VERSION;
 }
 
 }  // namespace art
