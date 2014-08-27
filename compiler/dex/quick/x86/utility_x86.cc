@@ -142,6 +142,11 @@ LIR* X86Mir2Lir::OpRegImm(OpKind op, RegStorage r_dest_src1, int value) {
       case kOpLsr: opcode = kX86Shr64RI; break;
       case kOpAsr: opcode = kX86Sar64RI; break;
       case kOpCmp: opcode = byte_imm ? kX86Cmp64RI8 : kX86Cmp64RI; break;
+      case kOpOr:  opcode = byte_imm ? kX86Or64RI8  : kX86Or64RI;  break;
+      case kOpAdc: opcode = byte_imm ? kX86Adc64RI8 : kX86Adc64RI; break;
+      case kOpAnd: opcode = byte_imm ? kX86And64RI8 : kX86And64RI; break;
+      case kOpSbc: opcode = byte_imm ? kX86Sbb64RI8 : kX86Sbb64RI; break;
+      case kOpXor: opcode = byte_imm ? kX86Xor64RI8 : kX86Xor64RI; break;
       default:
         LOG(FATAL) << "Bad case in OpRegImm (64-bit) " << op;
     }
@@ -153,9 +158,9 @@ LIR* X86Mir2Lir::OpRegImm(OpKind op, RegStorage r_dest_src1, int value) {
       case kOpAdd: opcode = byte_imm ? kX86Add32RI8 : kX86Add32RI; break;
       case kOpOr:  opcode = byte_imm ? kX86Or32RI8  : kX86Or32RI;  break;
       case kOpAdc: opcode = byte_imm ? kX86Adc32RI8 : kX86Adc32RI; break;
-      // case kOpSbb: opcode = kX86Sbb32RI; break;
       case kOpAnd: opcode = byte_imm ? kX86And32RI8 : kX86And32RI; break;
       case kOpSub: opcode = byte_imm ? kX86Sub32RI8 : kX86Sub32RI; break;
+      case kOpSbc: opcode = byte_imm ? kX86Sbb32RI8 : kX86Sbb32RI; break;
       case kOpXor: opcode = byte_imm ? kX86Xor32RI8 : kX86Xor32RI; break;
       case kOpCmp: opcode = byte_imm ? kX86Cmp32RI8 : kX86Cmp32RI; break;
       case kOpMov:
