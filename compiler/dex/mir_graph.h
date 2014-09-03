@@ -1339,6 +1339,11 @@ class MIRGraph {
   friend class ClassInitCheckEliminationTest;
   friend class GlobalValueNumberingTest;
   friend class LocalValueNumberingTest;
+
+  // Method inliners must be able to update the MIRGraph so they can add blocks, add try/catch
+  // information, update dex units, and add lowering information.
+  friend class MethodInliner;
+  friend class ControlFlowGraph;
   friend class TopologicalSortOrderTest;
 };
 
