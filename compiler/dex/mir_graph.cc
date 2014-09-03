@@ -721,7 +721,6 @@ void MIRGraph::InlineMethod(const DexFile::CodeItem* code_item, uint32_t access_
     cu_->shorty = dex_file.GetMethodShorty(dex_file.GetMethodId(method_idx));
     cu_->code_item = current_code_item_;
   } else {
-    UNIMPLEMENTED(FATAL) << "Nested inlining not implemented.";
     /*
      * Will need to manage storage for ins & outs, push prevous state and update
      * insert point.
