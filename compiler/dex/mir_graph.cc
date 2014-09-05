@@ -253,8 +253,6 @@ BasicBlock* MIRGraph::SplitBlock(DexOffset code_offset,
   DCHECK(insn != orig_block->first_mir_insn);
   DCHECK(insn == bottom_block->first_mir_insn);
   DCHECK_EQ(insn->offset, bottom_block->start_offset);
-  DCHECK(static_cast<int>(insn->dalvikInsn.opcode) == kMirOpCheck ||
-         !MIR::DecodedInstruction::IsPseudoMirOp(insn->dalvikInsn.opcode));
   DCHECK_EQ(dex_pc_to_block_map_.Get(insn->offset), orig_block->id);
   // Scan the "bottom" instructions, remapping them to the
   // newly created "bottom" block.
@@ -1243,7 +1241,7 @@ void MIRGraph::DisassembleExtendedInstr(const MIR* mir, std::string* decoded_mir
   int uses = (ssa_rep != nullptr) ? ssa_rep->num_uses : 0;
 
   if (opcode < kMirOpFirst) {
-    return; // It is not an extended instruction.
+    return;  // It is not an extended instruction.
   }
 
   decoded_mir->append(extended_mir_op_names_[opcode - kMirOpFirst]);
