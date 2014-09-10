@@ -575,10 +575,7 @@ class ClassLinker {
 
   void CreateReferenceInstanceOffsets(Handle<mirror::Class> klass)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void CreateReferenceStaticOffsets(Handle<mirror::Class> klass)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void CreateReferenceOffsets(Handle<mirror::Class> klass, bool is_static,
-                              uint32_t reference_offsets)
+  void CreateReferenceOffsets(Handle<mirror::Class> klass, uint32_t reference_offsets)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // For use by ImageWriter to find DexCaches for its roots
