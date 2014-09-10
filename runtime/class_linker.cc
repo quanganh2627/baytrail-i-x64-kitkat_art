@@ -4558,7 +4558,6 @@ bool ClassLinker::LinkClass(Thread* self, const char* descriptor, Handle<mirror:
     return false;
   }
   CreateReferenceInstanceOffsets(klass);
-  CreateReferenceStaticOffsets(klass);
   CHECK_EQ(mirror::Class::kStatusLoaded, klass->GetStatus());
 
   if (!klass->IsTemp() || (!init_done_ && klass->GetClassSize() == class_size)) {
@@ -5661,30 +5660,16 @@ void ClassLinker::CreateReferenceInstanceOffsets(Handle<mirror::Class> klass) {
       return;
     }
   }
-  CreateReferenceOffsets(klass, false, reference_offsets);
+  CreateReferenceOffsets(klass, reference_offsets);
 }
 
-void ClassLinker::CreateReferenceStaticOffsets(Handle<mirror::Class> klass) {
-  CreateReferenceOffsets(klass, true, 0);
-}
-
-void ClassLinker::CreateReferenceOffsets(Handle<mirror::Class> klass, bool is_static,
-                                         uint32_t reference_offsets) {
-  size_t num_reference_fields =
-      is_static ? klass->NumReferenceStaticFieldsDuringLinking()
-                : klass->NumReferenceInstanceFieldsDuringLinking();
+void ClassLinker::CreateReferenceOffsets(Handle<mirror::Class> klass, uint32_t reference_offsets) {
+  size_t num_reference_fields = klass->NumReferenceInstanceFieldsDuringLinking();
   if (num_reference_fields != 0u) {
     // All of the fields that contain object references are guaranteed be grouped in memory
     // starting at an appropriately aligned address after super class object data for instances
     // and after the basic class data for classes.
-    uint32_t start_offset =
-        !is_static
-        ? klass->GetFirstReferenceInstanceFieldOffset().Uint32Value()
-        // Can't use klass->GetFirstReferenceStaticFieldOffset() yet.
-        : klass->ShouldHaveEmbeddedImtAndVTable()
-          ? mirror::Class::ComputeClassSize(
-              true, klass->GetVTableDuringLinking()->GetLength(), 0, 0, 0, 0, 0)
-          : sizeof(mirror::Class);
+    uint32_t start_offset = klass->GetFirstReferenceInstanceFieldOffset().Uint32Value();
     uint32_t start_bit = start_offset / sizeof(mirror::HeapReference<mirror::Object>);
     if (start_bit + num_reference_fields > 32) {
       reference_offsets = CLASS_WALK_SUPER;
@@ -5693,12 +5678,7 @@ void ClassLinker::CreateReferenceOffsets(Handle<mirror::Class> klass, bool is_st
                            (0xffffffffu << (32 - (start_bit + num_reference_fields)));
     }
   }
-  // Update fields in klass
-  if (is_static) {
-    klass->SetReferenceStaticOffsets(reference_offsets);
-  } else {
-    klass->SetReferenceInstanceOffsets(reference_offsets);
-  }
+  klass->SetReferenceInstanceOffsets(reference_offsets);
 }
 
 mirror::String* ClassLinker::ResolveString(const DexFile& dex_file, uint32_t string_idx,
