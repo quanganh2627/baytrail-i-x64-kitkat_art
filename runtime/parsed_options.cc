@@ -231,6 +231,7 @@ bool ParsedOptions::Parse(const RuntimeOptions& options, bool ignore_unrecognize
   must_relocate_ = kDefaultMustRelocate;
   dex2oat_enabled_ = true;
   image_dex2oat_enabled_ = true;
+  continue_without_dex_ = true;
   if (kPoisonHeapReferences) {
     // kPoisonHeapReferences currently works only with the interpreter only.
     // TODO: make it work with the compiler.
@@ -625,6 +626,8 @@ bool ParsedOptions::Parse(const RuntimeOptions& options, bool ignore_unrecognize
         Usage("Unknown -Xverify option %s\n", verify_mode.c_str());
         return false;
       }
+    } else if (option == "-Xno-continue-without-dex") {
+      continue_without_dex_ = false;
     } else if (StartsWith(option, "-XX:NativeBridge=")) {
       if (!ParseStringAfterChar(option, '=', &native_bridge_library_filename_)) {
         return false;
