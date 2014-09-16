@@ -118,8 +118,8 @@ class SrcMapElem {
 
   bool operator==(const SrcMapElem& sme) const {
     return int64_t(*this) == int64_t(sme);
-   }
- 
+  }
+
   explicit operator uint8_t() const {
     return static_cast<uint8_t>(from_ + to_);
   }
@@ -173,7 +173,7 @@ class SrcMap FINAL : public std::vector<SrcMapElem, Allocator> {
       // get rid of the highest values
       size_t i = size() - 1;
       for (; i > 0 ; i--) {
-        if ((*this)[i].from_ >= highest_pc) {
+        if ((*this)[i].from_ < highest_pc) {
           break;
         }
       }
