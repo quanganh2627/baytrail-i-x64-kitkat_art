@@ -29,8 +29,6 @@
 #include "jni.h"
 #include "verifier/method_verifier.h"
 
-#define LSRA 1
-
 namespace art {
 
 #define IS_IN_REF_BITMAP(ref_bitmap, reg) \
@@ -87,27 +85,22 @@ struct ReferenceMap2Visitor : public StackVisitor {
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x0cU)));
       CHECK(ref_bitmap);
-#if LSRA
-      // V1, V3 are dead according to LSRA here, as this is an error case.
-      CHECK_REGS_CONTAIN_REFS(8);  // v8: this
-#else
       CHECK_REGS_CONTAIN_REFS(8, 3, 1);  // v8: this, v3: y, v1: x
-#endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x0eU)));
       CHECK(ref_bitmap);
-#if LSRA
-      // V1, V3 are dead according to LSRA here, as this is an error case.
-      CHECK_REGS_CONTAIN_REFS(8);  // v8: this
+#if SMART_GC_MAPS
+      // V1 is dead according to LSRA here, as this is an error case.
+      CHECK_REGS_CONTAIN_REFS(8, 3);  // v8: this, v3: y
 #else
       CHECK_REGS_CONTAIN_REFS(8, 3, 1);  // v8: this, v3: y, v1: x
 #endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x10U)));
       CHECK(ref_bitmap);
-#if LSRA
-      // V1 is dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8, 3);  // v8: this, v3: y
+#if SMART_GC_MAPS
+      // V1, V8 is dead according to LSRA here.
+      CHECK_REGS_CONTAIN_REFS(3);  // v3: y
 #else
       CHECK_REGS_CONTAIN_REFS(8, 3, 1);  // v8: this, v3: y, v1: x
 #endif
@@ -124,7 +117,7 @@ struct ReferenceMap2Visitor : public StackVisitor {
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x18U)));
       CHECK(ref_bitmap);
-#if LSRA
+#if SMART_GC_MAPS
       // V0 is dead according to LSRA here.
       CHECK_REGS_CONTAIN_REFS(8, 2, 1);  // v8: this, v2: y, v1: x
 #else
@@ -133,7 +126,7 @@ struct ReferenceMap2Visitor : public StackVisitor {
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x1aU)));
       CHECK(ref_bitmap);
-#if LSRA
+#if SMART_GC_MAPS
       // V0 is dead according to LSRA here.
       CHECK_REGS_CONTAIN_REFS(8, 5, 2, 1);  // v8: this, v5: x[1], v2: y, v1: x
 #else
@@ -142,9 +135,9 @@ struct ReferenceMap2Visitor : public StackVisitor {
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x1dU)));
       CHECK(ref_bitmap);
-#if LSRA
-      // V0/V1/V2/V5 are dead according to LSRA here, because this is a throw null.
-      CHECK_REGS_CONTAIN_REFS(8, 5, 2, 1);  // v8: this
+#if SMART_GC_MAPS
+      // V0 is dead according to LSRA here.
+      CHECK_REGS_CONTAIN_REFS(8, 5, 2, 1);  // v8: this, v5: x[1], v2: y, v1: x
 #else
       CHECK_REGS_CONTAIN_REFS(8, 5, 2, 1, 0);  // v8: this, v5: x[1], v2: y, v1: x, v0: ex
 #endif
@@ -153,65 +146,66 @@ struct ReferenceMap2Visitor : public StackVisitor {
       CHECK(ref_bitmap);
       // v5 is removed from the root set because there is a "merge" operation.
       // See 0015: if-nez v2, 001f.
-#if LSRA
-      // V0, V1, V2 are dead according to LSRA here, because this is a throw array bounds.
-      CHECK_REGS_CONTAIN_REFS(8);  // v8: this
+#if SMART_GC_MAPS
+      // V0, V1 are dead according to LSRA here, because this is a throw array bounds.
+      CHECK_REGS_CONTAIN_REFS(8, 2);  // v8: this, v2: y
 #else
       CHECK_REGS_CONTAIN_REFS(8, 2, 1, 0);  // v8: this, v2: y, v1: x, v0: ex
 #endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x21U)));
       CHECK(ref_bitmap);
-#if LSRA
-      // V0, V1 are dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8, 2);  // v8: this, v2: y
+#if SMART_GC_MAPS
+      // V0, V1, V8 are dead according to LSRA here.
+      CHECK_REGS_CONTAIN_REFS(2);  // v2: y
 #else
       CHECK_REGS_CONTAIN_REFS(8, 2, 1, 0);  // v8: this, v2: y, v1: x, v0: ex
 #endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x27U)));
       CHECK(ref_bitmap);
-#if LSRA
-      // V1/V2/V4 are dead according to LSRA here, because this is a throw array bound.
-      CHECK_REGS_CONTAIN_REFS(8);  // v8: this
+#if SMART_GC_MAPS
+      // V1 is dead according to LSRA here, because this is a throw array bound.
+      CHECK_REGS_CONTAIN_REFS(8, 4, 2);  // v8: this, v4: ex, v2: y
 #else
       CHECK_REGS_CONTAIN_REFS(8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
 #endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x29U)));
       CHECK(ref_bitmap);
-#if LSRA
-      // V1,V2 are dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8, 4);  // v8: this, v4: ex
+#if SMART_GC_MAPS
+      // V1,V2,V8 are dead according to LSRA here.
+      CHECK_REGS_CONTAIN_REFS(4);  // v4: ex
 #else
       CHECK_REGS_CONTAIN_REFS(8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
 #endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x2cU)));
       CHECK(ref_bitmap);
-#if LSRA
-      // All but V8 are dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8);  // v8: this
+#if SMART_GC_MAPS
+      // All are dead according to LSRA here.
 #else
       CHECK_REGS_CONTAIN_REFS(8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
 #endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x2fU)));
       CHECK(ref_bitmap);
-#if LSRA
-      // All but V8 are dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8);  // v8: this
+#ifndef SMART_GC_MAPS  // Not really. It is TestsSuspendRemoval.
+#if SMART_GC_MAPS
+      // All but V1/V8 are dead according to LSRA here.
+      CHECK_REGS_CONTAIN_REFS(8, 1);  // v8: this, v1: x
 #else
       CHECK_REGS_CONTAIN_REFS(8, 4, 3, 2, 1);  // v8: this, v4: ex, v3: y, v2: y, v1: x
 #endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x32U)));
       CHECK(ref_bitmap);
-#if LSRA
-      // All but V3, V8 are dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8);  // v8: this
+#if SMART_GC_MAPS
+      // All but V1/V8 are dead according to LSRA here.
+      CHECK_REGS_CONTAIN_REFS(8, 1);  // v8: this, v1: x
 #else
       CHECK_REGS_CONTAIN_REFS(8, 3, 2, 1, 0);  // v8: this, v3: y, v2: y, v1: x, v0: ex
+#endif
 #endif
     }
 

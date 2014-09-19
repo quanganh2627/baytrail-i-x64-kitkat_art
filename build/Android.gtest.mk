@@ -188,6 +188,10 @@ ifeq ($(ART_USE_PORTABLE_COMPILER),true)
   ART_TEST_CFLAGS += -DART_USE_PORTABLE_COMPILER=1
 endif
 
+# We have smarter GC algorithms.
+ART_HOST_CFLAGS += -DSMART_GC_MAPS
+ART_TARGET_CFLAGS += -DSMART_GC_MAPS
+
 include $(CLEAR_VARS)
 LOCAL_MODULE := libart-gtest
 LOCAL_MODULE_TAGS := optional

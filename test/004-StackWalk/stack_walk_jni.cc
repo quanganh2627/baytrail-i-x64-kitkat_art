@@ -26,6 +26,7 @@
 #include "jni.h"
 #include "scoped_thread_state_change.h"
 
+
 namespace art {
 
 #define REG(reg_bitmap, reg) \
@@ -74,16 +75,30 @@ struct TestReferenceMapVisitor : public StackVisitor {
       } else {
         CHECK_EQ(gJava_StackWalk_refmap_calls, 2);
         CHECK_EQ(5U, GetDexPc());
+#if SMART_GC_MAPS
+        // LSRA thinks all registers are dead at this point.
+#else
         CHECK_REGS(1);
+#endif
       }
     } else if (m_name == "g") {
       if (gJava_StackWalk_refmap_calls == 1) {
         CHECK_EQ(0xcU, GetDexPc());
+#if SMART_GC_MAPS
+        // LSRA thinks V2 is dead.
+        CHECK_REGS(0);  // Note that v1 is not in the minimal root set
+#else
         CHECK_REGS(0, 2);  // Note that v1 is not in the minimal root set
+#endif
       } else {
         CHECK_EQ(gJava_StackWalk_refmap_calls, 2);
         CHECK_EQ(0xcU, GetDexPc());
+#if SMART_GC_MAPS
+        // LSRA thinks V2 is dead.
+        CHECK_REGS(0);
+#else
         CHECK_REGS(0, 2);
+#endif
       }
     } else if (m_name == "shlemiel") {
       if (gJava_StackWalk_refmap_calls == 1) {
