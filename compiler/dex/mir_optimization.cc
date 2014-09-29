@@ -1065,26 +1065,30 @@ bool MIRGraph::EliminateNullChecks(BasicBlock* bb) {
 
 void MIRGraph::EliminateNullChecksEnd() {
   // Clean up temporaries.
-  temp_bit_vector_size_ = 0u;
-  temp_bit_vector_ = nullptr;
-  AllNodesIterator iter(this);
-  for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
-    if (bb->data_flow_info != nullptr) {
-      bb->data_flow_info->ending_check_v = nullptr;
+  {
+    temp_bit_vector_size_ = 0u;
+    temp_bit_vector_ = nullptr;
+    AllNodesIterator iter(this);
+    for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
+      if (bb->data_flow_info != nullptr) {
+        bb->data_flow_info->ending_check_v = nullptr;
+      }
     }
+    DCHECK(temp_scoped_alloc_.get() != nullptr);
+    temp_scoped_alloc_.reset();
   }
-  DCHECK(temp_scoped_alloc_.get() != nullptr);
-  temp_scoped_alloc_.reset();
 
   // converge MIR_MARK with MIR_IGNORE_NULL_CHECK
-  const int MARK_TO_IGNORE_NULL_CHECK_SHIFT = kMIRMark - kMIRIgnoreNullCheck;
-  DCHECK(MARK_TO_IGNORE_NULL_CHECK_SHIFT > 0);
-  AllNodesIterator iter(this);
-  for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
-    for (MIR* mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
-      uint16_t mirMarkAdjustedToIgnoreNullCheck =
-          (mir->optimization_flags & MIR_MARK) >> MARK_TO_IGNORE_NULL_CHECK_SHIFT;
-      mir->optimization_flags |= mirMarkAdjustedToIgnoreNullCheck;
+  {
+    const int MARK_TO_IGNORE_NULL_CHECK_SHIFT = kMIRMark - kMIRIgnoreNullCheck;
+    DCHECK(MARK_TO_IGNORE_NULL_CHECK_SHIFT > 0);
+    AllNodesIterator iter(this);
+    for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
+      for (MIR* mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+        uint16_t mirMarkAdjustedToIgnoreNullCheck =
+            (mir->optimization_flags & MIR_MARK) >> MARK_TO_IGNORE_NULL_CHECK_SHIFT;
+        mir->optimization_flags |= mirMarkAdjustedToIgnoreNullCheck;
+      }
     }
   }
 }
