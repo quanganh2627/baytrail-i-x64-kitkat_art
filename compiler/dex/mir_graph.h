@@ -1181,6 +1181,7 @@ class MIRGraph {
   void ComputeDefBlockMatrix();
   void ComputeDominators();
   void CompilerInitializeSSAConversion();
+  virtual void InitializeBasicBlockDataFlow();
   void InsertPhiNodes();
   void DoDFSPreOrderSSARename(BasicBlock* block);
 
