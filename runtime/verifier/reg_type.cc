@@ -727,6 +727,9 @@ static bool AssignableFrom(RegType& lhs, RegType& rhs, bool strict)
       return rhs.IsLongTypes();
     } else if (lhs.IsDoubleLo()) {
       return rhs.IsDoubleTypes();
+    } else if (lhs.IsConflict()) {
+      LOG(WARNING) << "RegType::AssignableFrom lhs is Conflict!";
+      return false;
     } else {
       CHECK(lhs.IsReferenceTypes())
           << "Unexpected register type in IsAssignableFrom: '"
