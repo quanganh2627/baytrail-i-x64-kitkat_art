@@ -1388,7 +1388,7 @@ bool X86Mir2Lir::GenMulLongConst(RegLocation rl_dest, RegLocation rl_src1, int64
     return true;
   } else if (IsPowerOfTwo(val)) {
     int shift_amount = LowestSetBit(val);
-    if (!BadOverlap(rl_src1, rl_dest)) {
+    if (!PartiallyIntersects(rl_src1, rl_dest)) {
       rl_src1 = LoadValueWide(rl_src1, kCoreReg);
       RegLocation rl_result = GenShiftImmOpLong(Instruction::SHL_LONG, rl_dest, rl_src1,
                                                 shift_amount);
@@ -1600,7 +1600,6 @@ void X86Mir2Lir::GenLongRegOrMemOp(RegLocation rl_dest, RegLocation rl_src,
 
       x86op = GetOpcode(op, rl_dest, rl_src, true);
       NewLIR2(x86op, rl_dest.reg.GetHighReg(), rl_src.reg.GetHighReg());
-      FreeTemp(rl_src.reg);  // ???
     }
     return;
   }
@@ -1634,6 +1633,14 @@ void X86Mir2Lir::GenLongArith(RegLocation rl_dest, RegLocation rl_src, Instructi
     GenLongRegOrMemOp(rl_result, rl_src, op);
     StoreFinalValueWide(rl_dest, rl_result);
     return;
+  } else if (!cu_->target64 && Intersects(rl_src, rl_dest)) {
+    // Handle the case when src and dest are intersect.
+    rl_src = LoadValueWide(rl_src, kCoreReg);
+    RegLocation rl_result = EvalLocWide(rl_dest, kCoreReg, true);
+    rl_src = UpdateLocWideTyped(rl_src, kCoreReg);
+    GenLongRegOrMemOp(rl_result, rl_src, op);
+    StoreFinalValueWide(rl_dest, rl_result);
+    return;
   }
 
   // It wasn't in registers, so it better be in memory.
@@ -1661,7 +1668,6 @@ void X86Mir2Lir::GenLongArith(RegLocation rl_dest, RegLocation rl_src, Instructi
     AnnotateDalvikRegAccess(lir, (displacement + HIWORD_OFFSET) >> 2,
                             false /* is_load */, true /* is64bit */);
   }
-  FreeTemp(rl_src.reg);
 }
 
 void X86Mir2Lir::GenLongArith(RegLocation rl_dest, RegLocation rl_src1,
@@ -2261,7 +2267,7 @@ void X86Mir2Lir::GenShiftImmOpLong(Instruction::Code opcode, RegLocation rl_dest
     GenArithOpLong(Instruction::ADD_LONG, rl_dest, rl_src, rl_src);
     return;
   }
-  if (BadOverlap(rl_src, rl_dest)) {
+  if (PartiallyIntersects(rl_src, rl_dest)) {
     GenShiftOpLong(opcode, rl_dest, rl_src, rl_shift);
     return;
   }
