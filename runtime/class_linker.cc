@@ -5652,30 +5652,26 @@ bool ClassLinker::LinkFields(Handle<mirror::Class> klass, bool is_static, size_t
 void ClassLinker::CreateReferenceInstanceOffsets(Handle<mirror::Class> klass) {
   uint32_t reference_offsets = 0;
   mirror::Class* super_class = klass->GetSuperClass();
+  // Leave the reference offsets as 0 for mirror::Object (the class field is handled specially).
   if (super_class != nullptr) {
     reference_offsets = super_class->GetReferenceInstanceOffsets();
-    // If our superclass overflowed, we don't stand a chance.
-    if (reference_offsets == CLASS_WALK_SUPER) {
-      klass->SetReferenceInstanceOffsets(reference_offsets);
-      return;
-    }
-  }
-  CreateReferenceOffsets(klass, reference_offsets);
-}
-
-void ClassLinker::CreateReferenceOffsets(Handle<mirror::Class> klass, uint32_t reference_offsets) {
-  size_t num_reference_fields = klass->NumReferenceInstanceFieldsDuringLinking();
-  if (num_reference_fields != 0u) {
-    // All of the fields that contain object references are guaranteed be grouped in memory
-    // starting at an appropriately aligned address after super class object data for instances
-    // and after the basic class data for classes.
-    uint32_t start_offset = klass->GetFirstReferenceInstanceFieldOffset().Uint32Value();
-    uint32_t start_bit = start_offset / sizeof(mirror::HeapReference<mirror::Object>);
-    if (start_bit + num_reference_fields > 32) {
-      reference_offsets = CLASS_WALK_SUPER;
-    } else {
-      reference_offsets |= (0xffffffffu >> start_bit) &
-                           (0xffffffffu << (32 - (start_bit + num_reference_fields)));
+    // Compute reference offsets unless our superclass overflowed.
+    if (reference_offsets != mirror::Class::kClassWalkSuper) {
+      size_t num_reference_fields = klass->NumReferenceInstanceFieldsDuringLinking();
+      if (num_reference_fields != 0u) {
+        // All of the fields that contain object references are guaranteed be grouped in memory
+        // starting at an appropriately aligned address after super class object data.
+        uint32_t start_offset = RoundUp(super_class->GetObjectSize(),
+                                        sizeof(mirror::HeapReference<mirror::Object>));
+        uint32_t start_bit = (start_offset - mirror::kObjectHeaderSize) /
+            sizeof(mirror::HeapReference<mirror::Object>);
+        if (start_bit + num_reference_fields > 32) {
+          reference_offsets = mirror::Class::kClassWalkSuper;
+        } else {
+          reference_offsets |= (0xffffffffu << start_bit) &
+                               (0xffffffffu >> (32 - (start_bit + num_reference_fields)));
+        }
+      }
     }
   }
   klass->SetReferenceInstanceOffsets(reference_offsets);
