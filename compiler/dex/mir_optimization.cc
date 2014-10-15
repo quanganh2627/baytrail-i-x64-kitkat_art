@@ -863,6 +863,15 @@ bool MIRGraph::EliminateNullChecksGate() {
   temp_bit_vector_size_ = GetNumSSARegs();
   temp_bit_vector_ = new (temp_scoped_alloc_.get()) ArenaBitVector(
       temp_scoped_alloc_.get(), temp_bit_vector_size_, false, kBitMapTempSSARegisterV);
+
+  // reset MIR_MARK
+  AllNodesIterator iter(this);
+  for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
+    for (MIR* mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+      mir->optimization_flags &= ~MIR_MARK;
+    }
+  }
+
   return true;
 }
 
@@ -956,10 +965,10 @@ bool MIRGraph::EliminateNullChecks(BasicBlock* bb) {
       int src_sreg = mir->ssa_rep->uses[src_idx];
       if (!ssa_regs_to_check->IsBitSet(src_sreg)) {
         // Eliminate the null check.
-        mir->optimization_flags |= MIR_IGNORE_NULL_CHECK;
+        mir->optimization_flags |= MIR_MARK;
       } else {
         // Do the null check.
-        mir->optimization_flags &= ~MIR_IGNORE_NULL_CHECK;
+        mir->optimization_flags &= ~MIR_MARK;
         // Mark s_reg as null-checked
         ssa_regs_to_check->ClearBit(src_sreg);
       }
@@ -1066,6 +1075,18 @@ void MIRGraph::EliminateNullChecksEnd() {
   }
   DCHECK(temp_scoped_alloc_.get() != nullptr);
   temp_scoped_alloc_.reset();
+
+  // converge MIR_MARK with MIR_IGNORE_NULL_CHECK
+  const int MARK_TO_IGNORE_NULL_CHECK_SHIFT = kMIRMark - kMIRIgnoreNullCheck;
+  DCHECK(MARK_TO_IGNORE_NULL_CHECK_SHIFT > 0);
+  AllNodesIterator iter(this);
+  for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
+    for (MIR* mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+      uint16_t mirMarkAdjustedToIgnoreNullCheck =
+          (mir->optimization_flags & MIR_MARK) >> MARK_TO_IGNORE_NULL_CHECK_SHIFT;
+      mir->optimization_flags |= mirMarkAdjustedToIgnoreNullCheck;
+    }
+  }
 }
 
 /*
