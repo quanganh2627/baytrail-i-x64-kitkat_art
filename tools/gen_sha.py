@@ -100,25 +100,28 @@ def createHeader(shaHeader, shaData):
 def main(argv):
     shaData = ''
     basePath = ''
+    outFile = ''
 
     try:
-        opts, args = getopt.getopt(argv, ":hp:", ["help", "path="])
+        opts, args = getopt.getopt(argv, "p:o:h", ["path=", "out=", "help"])
     except getopt.GetoptError:
-        print "usage: gen_sha.py -p <path_to_base_dir>"
+        print "usage: gen_sha.py -p <path_to_base_dir> -o <output_file>"
         sys.exit(2)
 
     if opts == []:
-        print "usage: gen_sha.py -p <path_to_base_dir>"
+        print "usage: gen_sha.py -p <path_to_base_dir> -o <output_file>"
         sys.exit(2)
 
     for opt, arg in opts:
         if opt == '-h':
-            print "usage: gen_sha.py -p <path_to_base_dir>"
+            print "usage: gen_sha.py -p <path_to_base_dir> -o <output_file>"
             sys.exit()
         elif opt in ("-p", "--path"):
             basePath = arg + "/"
+        elif opt in ("-o", "--out"):
+            outFile = arg
         else:
-            print "usage: gen_sha.py -p <path_to_base_dir>"
+            print "usage: gen_sha.py -p <path_to_base_dir> -o <output_file>"
             sys.exit(2)
 
     for hdr in headerFiles:
@@ -128,7 +131,7 @@ def main(argv):
 
     sha = genSha(shaData.replace(' ', ''))
     headerData = "#define SHA_ART_VERSION \"" + sha + "\""
-    shaHeaderFile = basePath + "compiler/sha_version.h"
+    shaHeaderFile = outFile
     print sha
 
     if isfile(shaHeaderFile):
