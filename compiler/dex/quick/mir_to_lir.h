@@ -825,6 +825,7 @@ class Mir2Lir : public Backend {
     void GenCompareZeroAndBranch(Instruction::Code opcode, RegLocation rl_src,
                                  LIR* taken, LIR* fall_through);
     virtual void GenIntToLong(RegLocation rl_dest, RegLocation rl_src);
+    virtual void GenLongToInt(RegLocation rl_dest, RegLocation rl_src);
     void GenIntNarrowing(Instruction::Code opcode, RegLocation rl_dest,
                          RegLocation rl_src);
     void GenNewArray(uint32_t type_idx, RegLocation rl_dest,
@@ -1029,7 +1030,7 @@ class Mir2Lir : public Backend {
      * @param rl_dest The destination dalvik register location.
      * @param rl_src The source register location. Can be either physical register or dalvik register.
      */
-    virtual void StoreValue(RegLocation rl_dest, RegLocation rl_src);
+    virtual void StoreValue(RegLocation rl_dest, RegLocation rl_src, bool discard_high_bits = false);
 
     /**
      * @brief Used to do the final store in a wide destination as per bytecode semantics.
