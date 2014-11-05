@@ -20,14 +20,16 @@
 #include <memory>
 #include <vector>
 
-#include "dex_instruction.h"
-#include "reg_type.h"
 #include "safe_map.h"
 
 namespace art {
+
+class Instruction;
+
 namespace verifier {
 
 class MethodVerifier;
+class RegType;
 
 /*
  * Register type categories, for type checking.
@@ -270,15 +272,7 @@ class RegisterLine {
   bool MergeRegisters(const RegisterLine* incoming_line)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  size_t GetMaxNonZeroReferenceReg(size_t max_ref_reg) {
-    size_t i = static_cast<int>(max_ref_reg) < 0 ? 0 : max_ref_reg;
-    for (; i < num_regs_; i++) {
-      if (GetRegisterType(i).IsNonZeroReferenceTypes()) {
-        max_ref_reg = i;
-      }
-    }
-    return max_ref_reg;
-  }
+  size_t GetMaxNonZeroReferenceReg(size_t max_ref_reg);
 
   // Write a bit at each register location that holds a reference
   void WriteReferenceBitMap(std::vector<uint8_t>& data, size_t max_bytes);
@@ -308,15 +302,18 @@ class RegisterLine {
     }
   }
 
-  void SetRegToLockDepth(size_t reg, size_t depth) {
+  bool SetRegToLockDepth(size_t reg, size_t depth) {
     CHECK_LT(depth, 32u);
-    DCHECK(!IsSetLockDepth(reg, depth));
+    if (IsSetLockDepth(reg, depth)) {
+      return false;  // Register already holds lock so locking twice is erroneous.
+    }
     auto it = reg_to_lock_depths_.find(reg);
     if (it == reg_to_lock_depths_.end()) {
       reg_to_lock_depths_.Put(reg, 1 << depth);
     } else {
       it->second |= (1 << depth);
     }
+    return true;
   }
 
   void ClearRegToLockDepth(size_t reg, size_t depth) {
@@ -342,7 +339,7 @@ class RegisterLine {
     SetResultTypeToUnknown();
   }
 
-  // Storage for the result register's type, valid after an invocation
+  // Storage for the result register's type, valid after an invocation.
   uint16_t result_[2];
 
   // Back link to the verifier
@@ -350,15 +347,17 @@ class RegisterLine {
 
   // Length of reg_types_
   const uint32_t num_regs_;
-  // A stack of monitor enter locations
+  // A stack of monitor enter locations.
   std::vector<uint32_t, TrackingAllocator<uint32_t, kAllocatorTagVerifier>> monitors_;
   // A map from register to a bit vector of indices into the monitors_ stack. As we pop the monitor
   // stack we verify that monitor-enter/exit are correctly nested. That is, if there was a
-  // monitor-enter on v5 and then on v6, we expect the monitor-exit to be on v6 then on v5
+  // monitor-enter on v5 and then on v6, we expect the monitor-exit to be on v6 then on v5.
   AllocationTrackingSafeMap<uint32_t, uint32_t, kAllocatorTagVerifier> reg_to_lock_depths_;
 
   // An array of RegType Ids associated with each dex register.
   uint16_t line_[0];
+
+  DISALLOW_COPY_AND_ASSIGN(RegisterLine);
 };
 std::ostream& operator<<(std::ostream& os, const RegisterLine& rhs);
 
