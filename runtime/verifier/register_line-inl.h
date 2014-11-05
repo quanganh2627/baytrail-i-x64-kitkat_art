@@ -31,6 +31,16 @@ inline RegType& RegisterLine::GetRegisterType(uint32_t vsrc) const {
   return verifier_->GetRegTypeCache()->GetFromId(line_[vsrc]);
 }
 
+inline size_t RegisterLine::GetMaxNonZeroReferenceReg(size_t max_ref_reg) {
+  size_t i = static_cast<int>(max_ref_reg) < 0 ? 0 : max_ref_reg;
+  for (; i < num_regs_; i++) {
+    if (GetRegisterType(i).IsNonZeroReferenceTypes()) {
+      max_ref_reg = i;
+    }
+  }
+  return max_ref_reg;
+}
+
 }  // namespace verifier
 }  // namespace art
 

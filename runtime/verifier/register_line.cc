@@ -419,8 +419,12 @@ void RegisterLine::PushMonitor(uint32_t reg_idx, int32_t insn_idx) {
   } else if (monitors_.size() >= 32) {
     verifier_->Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "monitor-enter stack overflow: " << monitors_.size();
   } else {
-    SetRegToLockDepth(reg_idx, monitors_.size());
-    monitors_.push_back(insn_idx);
+    if (SetRegToLockDepth(reg_idx, monitors_.size())) {
+      monitors_.push_back(insn_idx);
+    } else {
+      verifier_->Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "unexpected monitor-enter on register v" <<
+          reg_idx;
+    }
   }
 }
 

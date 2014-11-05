@@ -22,11 +22,8 @@
 #include <set>
 #include <string>
 
-#include "jni.h"
-
 #include "base/macros.h"
 #include "gc_root.h"
-#include "globals.h"
 #include "object_callbacks.h"
 #include "primitive.h"
 
@@ -34,6 +31,7 @@ namespace art {
 namespace mirror {
 class Class;
 }  // namespace mirror
+
 namespace verifier {
 
 class RegTypeCache;
@@ -590,20 +588,19 @@ class ConstantType : public RegType {
   bool IsOne() const {
     return IsPreciseConstant() && ConstantValue() == 1;
   }
-
-  bool IsConstantChar() const {
+  bool IsConstantChar() const OVERRIDE {
     return IsConstant() && ConstantValue() >= 0 &&
-           ConstantValue() <= std::numeric_limits<jchar>::max();
+           ConstantValue() <= std::numeric_limits<uint16_t>::max();
   }
-  bool IsConstantByte() const {
+  bool IsConstantByte() const OVERRIDE {
     return IsConstant() &&
-           ConstantValue() >= std::numeric_limits<jbyte>::min() &&
-           ConstantValue() <= std::numeric_limits<jbyte>::max();
+           ConstantValue() >= std::numeric_limits<int8_t>::min() &&
+           ConstantValue() <= std::numeric_limits<int8_t>::max();
   }
-  bool IsConstantShort() const {
+  bool IsConstantShort() const OVERRIDE {
     return IsConstant() &&
-           ConstantValue() >= std::numeric_limits<jshort>::min() &&
-           ConstantValue() <= std::numeric_limits<jshort>::max();
+           ConstantValue() >= std::numeric_limits<int16_t>::min() &&
+           ConstantValue() <= std::numeric_limits<int16_t>::max();
   }
   virtual bool IsConstantTypes() const { return true; }
 
