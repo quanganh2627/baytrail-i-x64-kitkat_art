@@ -854,7 +854,9 @@ DEFINE_FUNCTION art_quick_set32_instance
 END_FUNCTION art_quick_set32_instance
 
 DEFINE_FUNCTION art_quick_set64_instance
+    movd %ebx, %xmm0
     SETUP_REF_ONLY_CALLEE_SAVE_FRAME  // save ref containing registers for GC
+    movd %xmm0, %ebx
     subl LITERAL(8), %esp         // alignment padding
     CFI_ADJUST_CFA_OFFSET(8)
     PUSH esp                      // pass SP-8
