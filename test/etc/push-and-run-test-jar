@@ -102,6 +102,8 @@ while true; do
     elif [ "x$1" = "x--secondary" ]; then
         SECONDARY_DEX=":$DEX_LOCATION/$TEST_NAME-ex.jar"
         shift
+    elif [ "x$1" = "x--speed" ]; then
+      FLAGS="${FLAGS} -Xcompiler-option --compiler-filter=speed"
     elif [ "x$1" = "x--O1" ]; then
       FLAGS="${FLAGS} -Xcompiler-option --compiler-filter=O1"
     elif [ "x$1" = "x--O2" ]; then
