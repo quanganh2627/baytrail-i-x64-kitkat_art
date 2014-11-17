@@ -326,7 +326,7 @@ void Mir2Lir::GenIntToLong(RegLocation rl_dest, RegLocation rl_src) {
 void Mir2Lir::GenLongToInt(RegLocation rl_dest, RegLocation rl_src) {
   rl_src = UpdateLocWide(rl_src);
   rl_src = NarrowRegLoc(rl_src);
-  StoreValue(rl_dest, rl_src, cu_->target64);  // discard_high_bits if target64.
+  StoreValue(rl_dest, rl_src);
 }
 
 void Mir2Lir::GenIntNarrowing(Instruction::Code opcode, RegLocation rl_dest,
