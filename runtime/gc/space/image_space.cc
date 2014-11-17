@@ -433,10 +433,10 @@ ImageSpace* ImageSpace::Create(const char* image_location,
                                       image_location, system_filename.c_str(),
                                       cache_filename.c_str(), reason.c_str());
             // We failed to create files, remove any possibly garbage output.
-            // Since ImageCreationAllowed was true above, we are the zygote
-            // and therefore the only process expected to generate these for
-            // the device.
-            PruneDexCache(image_isa);
+            // If we are the zygote and therefore the only process expected to generate
+            // these for the device.
+            if (Runtime::Current()->IsZygote())
+              PruneDexCache(image_isa);
             return nullptr;
           }
         }
@@ -491,7 +491,8 @@ ImageSpace* ImageSpace::Create(const char* image_location,
                                 "but image failed to load: %s",
                                 image_location, cache_filename.c_str(), system_filename.c_str(),
                                 error_msg->c_str());
-      PruneDexCache(image_isa);
+      if (Runtime::Current()->IsZygote())
+        PruneDexCache(image_isa);
       return nullptr;
     } else if (is_system) {
       // If the /system file exists, it should be up-to-date, don't try to generate it.
