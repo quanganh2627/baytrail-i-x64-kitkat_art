@@ -171,7 +171,7 @@ RegLocation Mir2Lir::LoadValue(RegLocation rl_src) {
   return LoadValue(rl_src, LocToRegClass(rl_src));
 }
 
-void Mir2Lir::StoreValue(RegLocation rl_dest, RegLocation rl_src, bool discard_high_bits) {
+void Mir2Lir::StoreValue(RegLocation rl_dest, RegLocation rl_src) {
   /*
    * Sanity checking - should never try to store to the same
    * ssa name during the compilation of a single instruction
@@ -194,19 +194,10 @@ void Mir2Lir::StoreValue(RegLocation rl_dest, RegLocation rl_src, bool discard_h
       (rl_dest.location == kLocPhysReg)) {
       // Src is live/promoted or Dest has assigned reg.
       rl_dest = EvalLoc(rl_dest, rl_dest.ref || rl_src.ref ? kRefReg : kAnyReg, false);
-      LIR* copy_lir = OpRegCopyNoInsert(rl_dest.reg, rl_src.reg);
-      if (discard_high_bits || !copy_lir->flags.is_nop) {
-        copy_lir->flags.is_nop = false;
-        AppendLIR(copy_lir);
-      }
+      OpRegCopy(rl_dest.reg, rl_src.reg);
     } else {
       // Just re-assign the registers.  Dest gets Src's regs
       rl_dest.reg = rl_src.reg;
-      if (discard_high_bits) {
-        LIR* copy_lir = OpRegCopyNoInsert(rl_dest.reg, rl_dest.reg);
-        copy_lir->flags.is_nop = false;
-        AppendLIR(copy_lir);
-      }
       Clobber(rl_src.reg);
     }
   } else {

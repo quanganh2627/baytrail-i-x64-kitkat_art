@@ -1030,7 +1030,7 @@ class Mir2Lir : public Backend {
      * @param rl_dest The destination dalvik register location.
      * @param rl_src The source register location. Can be either physical register or dalvik register.
      */
-    virtual void StoreValue(RegLocation rl_dest, RegLocation rl_src, bool discard_high_bits = false);
+    virtual void StoreValue(RegLocation rl_dest, RegLocation rl_src);
 
     /**
      * @brief Used to do the final store in a wide destination as per bytecode semantics.
