@@ -952,12 +952,12 @@ void MIRGraph::HandleExtended(ArenaBitVector* use_v, ArenaBitVector* def_v,
       }
       break;
     case kMirOpSelect:
-      HandleDef(def_v, d_insn.vA);
       HandleLiveInUse(use_v, def_v, live_in_v, d_insn.arg[0]);
       if (d_insn.arg[1] != 1) {
         HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB);
         HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vC);
       }
+      HandleDef(def_v, d_insn.vA);
       break;
     default:
       LOG(ERROR) << "Unexpected Extended Opcode " << d_insn.opcode;
