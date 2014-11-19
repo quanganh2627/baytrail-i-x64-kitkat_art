@@ -277,7 +277,7 @@ void ReferenceMapCalculator::Start(PassDataHolder* data) const {
     LogReferenceMap(c_unit, &ref_data);
 
     // Cross check GC map if requested.
-    if (GetPassOption("CrossCheckMaps", c_unit) != 0) {
+    if (GetIntegerPassOption("CrossCheckMaps", c_unit) != 0) {
       CrossCheckGCMap(mir_graph, &ref_data);
     }
   }

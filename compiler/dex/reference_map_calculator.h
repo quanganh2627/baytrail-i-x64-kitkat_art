@@ -30,7 +30,7 @@ namespace art {
 class ReferenceMapCalculator : public PassME {
  public:
   ReferenceMapCalculator() : PassME("ReferenceMapCalculator", kNoNodes) {
-    default_options_.Put("CrossCheckMaps", 0);
+    default_options_.Put("CrossCheckMaps", OptionContent(0));
   }
 
   /**
