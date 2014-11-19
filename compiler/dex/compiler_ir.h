@@ -40,6 +40,68 @@ typedef uint32_t DexOffset;          // Dex offset in code units.
 typedef uint16_t NarrowDexOffset;    // For use in structs, Dex offsets range from 0 .. 0xffff.
 typedef uint32_t CodeOffset;         // Native code offset in bytes.
 
+/**
+ * Structure abstracting pass option values, which can be of type string or integer.
+ */
+struct OptionContent {
+  OptionContent(const OptionContent& option) :
+    type(option.type), container() {
+    if (type == STRING) {
+      container.s = option.container.s;
+    } else {
+      container.i = option.container.i;
+    }
+  }
+
+  explicit OptionContent(const char* value) :
+    type(STRING), container(std::string(value)) {}
+
+  explicit OptionContent(const std::string& value) :
+    type(STRING), container(value) {}
+
+  explicit OptionContent(int value) :
+    type(INTEGER), container(value) {}
+
+  explicit OptionContent(int64_t value) :
+    type(INTEGER), container(value) {}
+
+  /**
+   * Allows for a transparent display of the option content.
+   */
+  friend std::ostream& operator<<(std::ostream& out, const OptionContent& option) {
+    if (option.type == STRING) {
+      out << option.container.s;
+    } else {
+      out << option.container.i;
+    }
+
+    return out;
+  }
+
+  /**
+   * Describes the type of parameters allowed as option values.
+   */
+  enum OptionType {
+    STRING = 0,
+    INTEGER
+  };
+
+  OptionType type;
+
+  /**
+   * Union containing the option value of either type.
+   */
+  union OptionContainer {
+    explicit OptionContainer() {}
+    explicit OptionContainer(const std::string& value) : s(value) {}
+    explicit OptionContainer(const int64_t& value) : i(value) {}
+    ~OptionContainer() {}
+    std::string s;
+    int64_t i;
+  } container;
+};
+
+
 struct CompilationUnit {
   explicit CompilationUnit(ArenaPool* pool);
   ~CompilationUnit();
@@ -93,7 +155,7 @@ struct CompilationUnit {
    * default settings have been changed. The key is simply the option string without
    * the pass name.
    */
-  SafeMap<const std::string, int> overridden_pass_options;
+  SafeMap<const std::string, const OptionContent> overridden_pass_options;
 };
 
 }  // namespace art
