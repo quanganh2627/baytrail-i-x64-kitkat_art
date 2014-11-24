@@ -686,7 +686,7 @@ Elf32_Word ElfFile::GetHashBucket(size_t i, bool* ok) const {
 }
 
 Elf32_Word ElfFile::GetHashChain(size_t i, bool* ok) const {
-  if (i >= GetHashBucketNum()) {
+  if (i >= GetHashChainNum()) {
     *ok = false;
     return 0;
   }
