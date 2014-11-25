@@ -187,6 +187,9 @@ while true; do
     elif [ "x$1" = "x--always-clean" ]; then
         always_clean="yes"
         shift
+    elif [ "x$1" = "x--speed" ]; then
+        run_args="${run_args} --speed"
+        shift
     elif [ "x$1" = "x--O1" ]; then
         run_args="${run_args} --O1"
         shift

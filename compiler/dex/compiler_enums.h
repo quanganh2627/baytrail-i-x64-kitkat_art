@@ -268,12 +268,14 @@ enum MIROptimizationFlagPositions {
   kMIRIgnoreRangeCheck,
   kMIRRangeCheckOnly,
   kMIRIgnoreClInitCheck,
+  kMirIgnoreDivZeroCheck,
   kMIRInlined,                        // Invoke is inlined (ie dead).
   kMIRInlinedPred,                    // Invoke is inlined via prediction.
   kMIRCallee,                         // Instruction is inlined from callee.
   kMIRIgnoreSuspendCheck,
   kMIRDup,
-  kMIRMark,                           // Temporary node mark.
+  kMIRMark,                           // Temporary node mark can be used by
+                                      // opt passes for their private needs.
   kMIRStoreNonTemporal,
   kMIRLastMIRFlag,
 };

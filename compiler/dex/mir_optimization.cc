@@ -186,6 +186,10 @@ static MIR* FindPhi(BasicBlock* bb, int ssa_name) {
 }
 
 static SelectInstructionKind SelectKind(MIR* mir) {
+  // Work with the case when mir is nullptr.
+  if (mir == nullptr) {
+    return kSelectNone;
+  }
   switch (mir->dalvikInsn.opcode) {
     case Instruction::MOVE:
     case Instruction::MOVE_OBJECT:
@@ -806,6 +810,14 @@ void MIRGraph::EliminateNullChecksAndInferTypesStart() {
     temp_bit_vector_size_ = GetNumSSARegs();
     temp_bit_vector_ = new (temp_scoped_alloc_.get()) ArenaBitVector(
         temp_scoped_alloc_.get(), temp_bit_vector_size_, false, kBitMapTempSSARegisterV);
+
+    // reset MIR_MARK
+    AllNodesIterator iter(this);
+    for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
+      for (MIR* mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+        mir->optimization_flags &= ~MIR_MARK;
+      }
+    }
   }
 }
 
@@ -913,11 +925,10 @@ bool MIRGraph::EliminateNullChecksAndInferTypes(BasicBlock* bb) {
       int src_sreg = mir->ssa_rep->uses[src_idx];
       if (!ssa_regs_to_check->IsBitSet(src_sreg)) {
         // Eliminate the null check.
-        mir->optimization_flags |= MIR_IGNORE_NULL_CHECK;
+        mir->optimization_flags |= MIR_MARK;
       } else {
         // Do the null check.
-        mir->optimization_flags &= ~MIR_IGNORE_NULL_CHECK;
-        // Mark s_reg as null-checked
+        mir->optimization_flags &= ~MIR_MARK;
         ssa_regs_to_check->ClearBit(src_sreg);
       }
     }
@@ -1015,13 +1026,20 @@ bool MIRGraph::EliminateNullChecksAndInferTypes(BasicBlock* bb) {
 
 void MIRGraph::EliminateNullChecksAndInferTypesEnd() {
   if ((cu_->disable_opt & (1 << kNullCheckElimination)) == 0) {
-    // Clean up temporaries.
+    // Clean up temporaries and converge MIR_MARK with MIR_IGNORE_NULL_CHECK
     temp_bit_vector_size_ = 0u;
     temp_bit_vector_ = nullptr;
     AllNodesIterator iter(this);
+    const int MARK_TO_IGNORE_NULL_CHECK_SHIFT = kMIRMark - kMIRIgnoreNullCheck;
+    DCHECK(MARK_TO_IGNORE_NULL_CHECK_SHIFT > 0);
     for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
       if (bb->data_flow_info != nullptr) {
         bb->data_flow_info->ending_check_v = nullptr;
+      }
+      for (MIR* mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+        uint16_t mirMarkAdjustedToIgnoreNullCheck =
+            (mir->optimization_flags & MIR_MARK) >> MARK_TO_IGNORE_NULL_CHECK_SHIFT;
+        mir->optimization_flags |= mirMarkAdjustedToIgnoreNullCheck;
       }
     }
     DCHECK(temp_scoped_alloc_.get() != nullptr);
