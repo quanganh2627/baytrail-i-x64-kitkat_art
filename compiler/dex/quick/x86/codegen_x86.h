@@ -161,6 +161,26 @@ class X86Mir2Lir : public Mir2Lir {
   bool GenInlinedMinMax(CallInfo* info, bool is_min, bool is_long) OVERRIDE;
   bool GenInlinedMinMaxFP(CallInfo* info, bool is_min, bool is_double) OVERRIDE;
   bool GenInlinedSqrt(CallInfo* info) OVERRIDE;
+  bool GenInlinedCos(CallInfo* info) OVERRIDE;
+  bool GenInlinedSin(CallInfo* info) OVERRIDE;
+  bool GenInlinedAcos(CallInfo* info) OVERRIDE;
+  bool GenInlinedAsin(CallInfo* info) OVERRIDE;
+  bool GenInlinedAtan(CallInfo* info) OVERRIDE;
+  bool GenInlinedAtan2(CallInfo* info) OVERRIDE;
+  bool GenInlinedCbrt(CallInfo* info) OVERRIDE;
+  bool GenInlinedCeil(CallInfo* info) OVERRIDE;
+  bool GenInlinedCosh(CallInfo* info) OVERRIDE;
+  bool GenInlinedExp(CallInfo* info) OVERRIDE;
+  bool GenInlinedExpm1(CallInfo* info) OVERRIDE;
+  bool GenInlinedFloor(CallInfo* info) OVERRIDE;
+  bool GenInlinedHypot(CallInfo* info) OVERRIDE;
+  bool GenInlinedLog(CallInfo* info) OVERRIDE;
+  bool GenInlinedLog10(CallInfo* info) OVERRIDE;
+  bool GenInlinedNextAfter(CallInfo* info) OVERRIDE;
+  bool GenInlinedRint(CallInfo* info) OVERRIDE;
+  bool GenInlinedSinh(CallInfo* info) OVERRIDE;
+  bool GenInlinedTan(CallInfo* info) OVERRIDE;
+  bool GenInlinedTanh(CallInfo* info) OVERRIDE;
   bool GenInlinedAbsFloat(CallInfo* info) OVERRIDE;
   bool GenInlinedAbsDouble(CallInfo* info) OVERRIDE;
   bool GenInlinedPeek(CallInfo* info, OpSize size) OVERRIDE;
@@ -169,11 +189,11 @@ class X86Mir2Lir : public Mir2Lir {
 
   // Long instructions.
   void GenArithOpLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
-                      RegLocation rl_src2) OVERRIDE;
+                      RegLocation rl_src2, int flags) OVERRIDE;
   void GenArithImmOpLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
-                         RegLocation rl_src2) OVERRIDE;
+                         RegLocation rl_src2, int flags) OVERRIDE;
   void GenShiftImmOpLong(Instruction::Code opcode, RegLocation rl_dest,
-                         RegLocation rl_src1, RegLocation rl_shift) OVERRIDE;
+                         RegLocation rl_src1, RegLocation rl_shift, int flags) OVERRIDE;
   void GenCmpLong(RegLocation rl_dest, RegLocation rl_src1, RegLocation rl_src2) OVERRIDE;
   void GenIntToLong(RegLocation rl_dest, RegLocation rl_src) OVERRIDE;
   void GenShiftOpLong(Instruction::Code opcode, RegLocation rl_dest,
@@ -304,9 +324,10 @@ class X86Mir2Lir : public Mir2Lir {
    * @param rl_dest Destination for the result.
    * @param rl_lhs Left hand operand.
    * @param rl_rhs Right hand operand.
+   * @param flags The instruction optimization flags.
    */
   void GenArithOpInt(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_lhs,
-                     RegLocation rl_rhs) OVERRIDE;
+                     RegLocation rl_rhs, int flags) OVERRIDE;
 
   /*
    * @brief Load the Method* of a dex method into the register.
@@ -746,10 +767,11 @@ class X86Mir2Lir : public Mir2Lir {
    * @param rl_src1 Numerator Location.
    * @param rl_src2 Divisor Location.
    * @param is_div 'true' if this is a division, 'false' for a remainder.
-   * @param check_zero 'true' if an exception should be generated if the divisor is 0.
+   * @param flags The instruction optimization flags. It can include information
+   * if exception check can be elided.
    */
   RegLocation GenDivRem(RegLocation rl_dest, RegLocation rl_src1, RegLocation rl_src2,
-                        bool is_div, bool check_zero);
+                        bool is_div, int flags);
 
   /*
    * @brief Generate an integer div or rem operation by a literal.
@@ -766,10 +788,11 @@ class X86Mir2Lir : public Mir2Lir {
    * @param rl_dest The destination.
    * @param rl_src The value to be shifted.
    * @param shift_amount How much to shift.
+   * @param flags The instruction optimization flags.
    * @returns the RegLocation of the result.
    */
   RegLocation GenShiftImmOpLong(Instruction::Code opcode, RegLocation rl_dest,
-                                RegLocation rl_src, int shift_amount);
+                                RegLocation rl_src, int shift_amount, int flags);
   /*
    * Generate an imul of a register by a constant or a better sequence.
    * @param dest Destination Register.
@@ -836,13 +859,13 @@ class X86Mir2Lir : public Mir2Lir {
 
   // Try to do a long multiplication where rl_src2 is a constant. This simplified setup might fail,
   // in which case false will be returned.
-  bool GenMulLongConst(RegLocation rl_dest, RegLocation rl_src1, int64_t val);
+  bool GenMulLongConst(RegLocation rl_dest, RegLocation rl_src1, int64_t val, int flags);
   void GenMulLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
-                  RegLocation rl_src2);
+                  RegLocation rl_src2, int flags);
   void GenNotLong(RegLocation rl_dest, RegLocation rl_src);
   void GenNegLong(RegLocation rl_dest, RegLocation rl_src);
   void GenDivRemLong(Instruction::Code, RegLocation rl_dest, RegLocation rl_src1,
-                     RegLocation rl_src2, bool is_div);
+                     RegLocation rl_src2, bool is_div, int flags);
 
   void SpillCoreRegs();
   void UnSpillCoreRegs();

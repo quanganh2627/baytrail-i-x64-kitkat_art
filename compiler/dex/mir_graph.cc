@@ -175,7 +175,7 @@ BasicBlock* MIRGraph::SplitBlock(DexOffset code_offset,
                                  BasicBlock* orig_block, BasicBlock** immed_pred_block_p) {
   DCHECK_GT(code_offset, orig_block->start_offset);
   MIR* insn = orig_block->first_mir_insn;
-  MIR* prev = NULL;
+  MIR* prev = NULL;  // Will be set to instruction before split.
   while (insn) {
     if (insn->offset == code_offset) break;
     prev = insn;
@@ -184,6 +184,10 @@ BasicBlock* MIRGraph::SplitBlock(DexOffset code_offset,
   if (insn == NULL) {
     LOG(FATAL) << "Break split failed";
   }
+  // Now insn is at the instruction where we want to split, namely
+  // insn will be the first instruction of the "bottom" block.
+  // Similarly, prev will be the last instruction of the "top" block
+
   BasicBlock* bottom_block = NewMemBB(kDalvikByteCode, num_blocks_++);
   block_list_.Insert(bottom_block);
 
@@ -249,10 +253,11 @@ BasicBlock* MIRGraph::SplitBlock(DexOffset code_offset,
   DCHECK(insn != orig_block->first_mir_insn);
   DCHECK(insn == bottom_block->first_mir_insn);
   DCHECK_EQ(insn->offset, bottom_block->start_offset);
-  DCHECK(static_cast<int>(insn->dalvikInsn.opcode) == kMirOpCheck ||
-         !MIR::DecodedInstruction::IsPseudoMirOp(insn->dalvikInsn.opcode));
   DCHECK_EQ(dex_pc_to_block_map_.Get(insn->offset), orig_block->id);
+  // Scan the "bottom" instructions, remapping them to the
+  // newly created "bottom" block.
   MIR* p = insn;
+  p->bb = bottom_block->id;
   dex_pc_to_block_map_.Put(p->offset, bottom_block->id);
   while (p != bottom_block->last_mir_insn) {
     p = p->next;
@@ -266,7 +271,11 @@ BasicBlock* MIRGraph::SplitBlock(DexOffset code_offset,
      * the first in a BasicBlock, we can't hit it here.
      */
     if ((opcode == kMirOpCheck) || !MIR::DecodedInstruction::IsPseudoMirOp(opcode)) {
-      DCHECK_EQ(dex_pc_to_block_map_.Get(p->offset), orig_block->id);
+      BasicBlockId mapped_id = dex_pc_to_block_map_.Get(p->offset);
+      // At first glance the instructions should all be mapped to orig_block.
+      // However, multiple instructions may correspond to the same dex, hence an earlier
+      // instruction may have already moved the mapping for dex to bottom_block.
+      DCHECK((mapped_id == orig_block->id) || (mapped_id == bottom_block->id));
       dex_pc_to_block_map_.Put(p->offset, bottom_block->id);
     }
   }
@@ -712,7 +721,6 @@ void MIRGraph::InlineMethod(const DexFile::CodeItem* code_item, uint32_t access_
     cu_->shorty = dex_file.GetMethodShorty(dex_file.GetMethodId(method_idx));
     cu_->code_item = current_code_item_;
   } else {
-    UNIMPLEMENTED(FATAL) << "Nested inlining not implemented.";
     /*
      * Will need to manage storage for ins & outs, push prevous state and update
      * insert point.
@@ -1168,7 +1176,7 @@ bool BasicBlock::RemoveMIRList(MIR* first_list_mir, MIR* last_list_mir) {
   }
 
   // Remove the BB information and also find the after_list.
-  for (MIR* mir = first_list_mir; mir != last_list_mir; mir = mir->next) {
+  for (MIR* mir = first_list_mir; mir != last_list_mir->next; mir = mir->next) {
     mir->bb = NullBasicBlockId;
   }
 
@@ -1230,7 +1238,7 @@ void MIRGraph::DisassembleExtendedInstr(const MIR* mir, std::string* decoded_mir
   int uses = (ssa_rep != nullptr) ? ssa_rep->num_uses : 0;
 
   if (opcode < kMirOpFirst) {
-    return; // It is not an extended instruction.
+    return;  // It is not an extended instruction.
   }
 
   decoded_mir->append(extended_mir_op_names_[opcode - kMirOpFirst]);
@@ -1268,6 +1276,40 @@ void MIRGraph::DisassembleExtendedInstr(const MIR* mir, std::string* decoded_mir
         decoded_mir->append(StringPrintf(" v%d = v%d", mir->dalvikInsn.vA, mir->dalvikInsn.vB));
       }
       break;
+    case kMirOpSelect: {
+      std::stringstream ss;
+      if (ssa_rep != nullptr) {
+        ss << " " << GetSSANameWithConst(ssa_rep->defs[0], false) << " = ";
+      } else {
+        ss << " v" << mir->dalvikInsn.vA << " = ";
+      }
+
+      ss << mir->meta.ccode << " ";
+      if (ssa_rep != nullptr) {
+        // First print what is being compared.
+        ss << GetSSANameWithConst(ssa_rep->uses[0], false) << " ? ";
+        // Check if constant form needs to be handled.
+        if (ssa_rep->num_uses == 1) {
+          DCHECK_EQ(mir->dalvikInsn.arg[1], 1u);
+          ss << "#" << mir->dalvikInsn.vB << " : #" << mir->dalvikInsn.vC;
+        } else {
+          DCHECK_EQ(ssa_rep->num_uses, 3);
+          ss << GetSSANameWithConst(ssa_rep->uses[1], false) << " : ";
+          ss << GetSSANameWithConst(ssa_rep->uses[2], false);
+        }
+      } else {
+        // First print what is being compared.
+        ss << "v" << mir->dalvikInsn.arg[0] << " ? ";
+        // Check if constant form needs to be handled.
+        if (mir->dalvikInsn.arg[1] == 1) {
+          ss << "#" << mir->dalvikInsn.vB << " : #" << mir->dalvikInsn.vC;
+        } else {
+          ss << "v" << mir->dalvikInsn.vB << " : v" << mir->dalvikInsn.vC;
+        }
+      }
+      decoded_mir->append(ss.str());
+      break;
+    }
     case kMirOpFusedCmplFloat:
     case kMirOpFusedCmpgFloat:
     case kMirOpFusedCmplDouble:
@@ -1542,7 +1584,8 @@ std::string MIRGraph::GetSSANameWithConst(int ssa_reg, bool singles_only) {
     return GetSSAName(ssa_reg);
   }
   if (IsConst(reg_location_[ssa_reg])) {
-    if (!singles_only && reg_location_[ssa_reg].wide) {
+    if (!singles_only && reg_location_[ssa_reg].wide &&
+        !reg_location_[ssa_reg].high_word) {
       return StringPrintf("v%d_%d#0x%" PRIx64, SRegToVReg(ssa_reg), GetSSASubscript(ssa_reg),
                           ConstantValueWide(reg_location_[ssa_reg]));
     } else {

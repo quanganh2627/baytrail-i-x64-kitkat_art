@@ -97,6 +97,8 @@ while true; do
         TARGET_SUFFIX="64"
         GDB_TARGET_SUFFIX="64"
         shift
+    elif [ "x$1" = "x--speed" ]; then
+      FLAGS="${FLAGS} -Xcompiler-option --compiler-filter=speed"
     elif [ "x$1" = "x--O1" ]; then
       FLAGS="${FLAGS} -Xcompiler-option --compiler-filter=O1"
     elif [ "x$1" = "x--O2" ]; then

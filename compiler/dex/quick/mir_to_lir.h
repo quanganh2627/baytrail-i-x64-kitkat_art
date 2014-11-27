@@ -854,7 +854,7 @@ class Mir2Lir : public Backend {
     void GenArithOpIntLit(Instruction::Code opcode, RegLocation rl_dest,
                           RegLocation rl_src, int lit);
     virtual void GenArithOpLong(Instruction::Code opcode, RegLocation rl_dest,
-                                RegLocation rl_src1, RegLocation rl_src2);
+                                RegLocation rl_src1, RegLocation rl_src2, int flags);
     void GenConversionCall(QuickEntrypointEnum trampoline, RegLocation rl_dest, RegLocation rl_src);
     virtual void GenSuspendTest(int opt_flags);
     virtual void GenSuspendTestAndBranch(int opt_flags, LIR* target);
@@ -862,7 +862,7 @@ class Mir2Lir : public Backend {
     // This will be overridden by x86 implementation.
     virtual void GenConstWide(RegLocation rl_dest, int64_t value);
     virtual void GenArithOpInt(Instruction::Code opcode, RegLocation rl_dest,
-                       RegLocation rl_src1, RegLocation rl_src2);
+                       RegLocation rl_src1, RegLocation rl_src2, int flags);
 
     // Shared by all targets - implemented in gen_invoke.cc.
     LIR* CallHelper(RegStorage r_tgt, QuickEntrypointEnum trampoline, bool safepoint_pc,
@@ -1235,7 +1235,7 @@ class Mir2Lir : public Backend {
 
     // Required for target - Dalvik-level generators.
     virtual void GenArithImmOpLong(Instruction::Code opcode, RegLocation rl_dest,
-                                   RegLocation rl_src1, RegLocation rl_src2) = 0;
+                                   RegLocation rl_src1, RegLocation rl_src2, int flags) = 0;
     virtual void GenArithOpDouble(Instruction::Code opcode,
                                   RegLocation rl_dest, RegLocation rl_src1,
                                   RegLocation rl_src2) = 0;
@@ -1260,6 +1260,23 @@ class Mir2Lir : public Backend {
     virtual bool GenInlinedMinMax(CallInfo* info, bool is_min, bool is_long) = 0;
     virtual bool GenInlinedMinMaxFP(CallInfo* info, bool is_min, bool is_double);
 
+    virtual bool GenInlinedCos(CallInfo* info) { return false; }
+    virtual bool GenInlinedSin(CallInfo* info) { return false; }
+    virtual bool GenInlinedAcos(CallInfo* info) { return false; }
+    virtual bool GenInlinedAsin(CallInfo* info) { return false; }
+    virtual bool GenInlinedAtan(CallInfo* info) {return false; }
+    virtual bool GenInlinedAtan2(CallInfo* info) { return false; }
+    virtual bool GenInlinedCbrt(CallInfo* info) {return false; }
+    virtual bool GenInlinedCosh(CallInfo* info) { return false; }
+    virtual bool GenInlinedExp(CallInfo* info) { return false; }
+    virtual bool GenInlinedExpm1(CallInfo* info) { return false; }
+    virtual bool GenInlinedHypot(CallInfo* info) { return false; }
+    virtual bool GenInlinedLog(CallInfo* info) { return false; }
+    virtual bool GenInlinedLog10(CallInfo* info) { return false; }
+    virtual bool GenInlinedNextAfter(CallInfo* info) { return false; }
+    virtual bool GenInlinedSinh(CallInfo* info) { return false; }
+    virtual bool GenInlinedTan(CallInfo* info) { return false; }
+    virtual bool GenInlinedTanh(CallInfo* info) { return false; }
     virtual bool GenInlinedSqrt(CallInfo* info) = 0;
     virtual bool GenInlinedPeek(CallInfo* info, OpSize size) = 0;
     virtual bool GenInlinedPoke(CallInfo* info, OpSize size) = 0;
@@ -1273,10 +1290,11 @@ class Mir2Lir : public Backend {
      * @param rl_src1 Numerator Location.
      * @param rl_src2 Divisor Location.
      * @param is_div 'true' if this is a division, 'false' for a remainder.
-     * @param check_zero 'true' if an exception should be generated if the divisor is 0.
+     * @param flags The instruction optimization flags. It can include information
+     * if exception check can be elided.
      */
     virtual RegLocation GenDivRem(RegLocation rl_dest, RegLocation rl_src1,
-                                  RegLocation rl_src2, bool is_div, bool check_zero) = 0;
+                                  RegLocation rl_src2, bool is_div, int flags) = 0;
     /*
      * @brief Generate an integer div or rem operation by a literal.
      * @param rl_dest Destination Location.
@@ -1359,7 +1377,7 @@ class Mir2Lir : public Backend {
                              RegLocation rl_index, RegLocation rl_src, int scale,
                              bool card_mark) = 0;
     virtual void GenShiftImmOpLong(Instruction::Code opcode, RegLocation rl_dest,
-                                   RegLocation rl_src1, RegLocation rl_shift) = 0;
+                                   RegLocation rl_src1, RegLocation rl_shift, int flags) = 0;
 
     // Required for target - single operation generators.
     virtual LIR* OpUnconditionalBranch(LIR* target) = 0;
@@ -1464,7 +1482,18 @@ class Mir2Lir : public Backend {
      * is not usual for dx to generate, but it is legal (for now).  In a future rev of
      * dex, we'll want to make this case illegal.
      */
-    bool BadOverlap(RegLocation rl_op1, RegLocation rl_op2);
+    bool PartiallyIntersects(RegLocation rl_op1, RegLocation rl_op2);
+
+    /*
+     * @brief Do these SRs intersect?
+     * @param rl_op1 One RegLocation
+     * @param rl_op2 The other RegLocation
+     * @return 'true' if the VR pairs intersect
+     *
+     * Check to see if a result pair has misaligned overlap or
+     * full overlap with an operand pair.
+     */
+    bool Intersects(RegLocation rl_op1, RegLocation rl_op2);
 
     /*
      * @brief Force a location (in a register) into a temporary register

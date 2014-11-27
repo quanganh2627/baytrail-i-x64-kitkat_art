@@ -190,11 +190,13 @@ enum OatMethodAttributes {
 #define MIR_IGNORE_RANGE_CHECK          (1 << kMIRIgnoreRangeCheck)
 #define MIR_RANGE_CHECK_ONLY            (1 << kMIRRangeCheckOnly)
 #define MIR_IGNORE_CLINIT_CHECK         (1 << kMIRIgnoreClInitCheck)
+#define MIR_IGNORE_DIV_ZERO_CHECK       (1 << kMirIgnoreDivZeroCheck)
 #define MIR_INLINED                     (1 << kMIRInlined)
 #define MIR_INLINED_PRED                (1 << kMIRInlinedPred)
 #define MIR_CALLEE                      (1 << kMIRCallee)
 #define MIR_IGNORE_SUSPEND_CHECK        (1 << kMIRIgnoreSuspendCheck)
 #define MIR_DUP                         (1 << kMIRDup)
+#define MIR_MARK                        (1 << kMIRMark)
 #define MIR_STORE_NON_TEMPORAL          (1 << kMIRStoreNonTemporal)
 
 #define BLOCK_NAME_LEN 80
@@ -668,6 +670,10 @@ class MIRGraph {
 
   DexCompilationUnit* GetCurrentDexCompilationUnit() const {
     return m_units_[current_method_];
+  }
+
+  DexCompilationUnit* GetDexCompilationUnit(uint16_t m_unit_index) const {
+    return m_units_[m_unit_index];
   }
 
   /**
@@ -1334,6 +1340,11 @@ class MIRGraph {
   friend class ClassInitCheckEliminationTest;
   friend class GlobalValueNumberingTest;
   friend class LocalValueNumberingTest;
+
+  // Method inliners must be able to update the MIRGraph so they can add blocks, add try/catch
+  // information, update dex units, and add lowering information.
+  friend class MethodInliner;
+  friend class ControlFlowGraph;
   friend class TopologicalSortOrderTest;
 };
 

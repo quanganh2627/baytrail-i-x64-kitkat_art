@@ -119,6 +119,14 @@ enum ExtendedMIROpcode {
   kMirOpDivZeroCheck,
   kMirOpCheck,
   kMirOpCheckPart2,
+
+  // Select opcodes:
+  // @brief MIR for a select pattern
+  // vA: destination VR
+  // vB: true set val
+  // vC: false set val
+  // arg[0]: source to compare in if
+  // arg[1]: 1 if true and false branch are constant form, else 0
   kMirOpSelect,
 
   // Vector opcodes:
@@ -268,12 +276,14 @@ enum MIROptimizationFlagPositions {
   kMIRIgnoreRangeCheck,
   kMIRRangeCheckOnly,
   kMIRIgnoreClInitCheck,
+  kMirIgnoreDivZeroCheck,
   kMIRInlined,                        // Invoke is inlined (ie dead).
   kMIRInlinedPred,                    // Invoke is inlined via prediction.
   kMIRCallee,                         // Instruction is inlined from callee.
   kMIRIgnoreSuspendCheck,
   kMIRDup,
-  kMIRMark,                           // Temporary node mark.
+  kMIRMark,                           // Temporary node mark can be used by
+                                      // opt passes for their private needs.
   kMIRStoreNonTemporal,
   kMIRLastMIRFlag,
 };

@@ -186,6 +186,10 @@ static MIR* FindPhi(BasicBlock* bb, int ssa_name) {
 }
 
 static SelectInstructionKind SelectKind(MIR* mir) {
+  // Work with the case when mir is nullptr.
+  if (mir == nullptr) {
+    return kSelectNone;
+  }
   switch (mir->dalvikInsn.opcode) {
     case Instruction::MOVE:
     case Instruction::MOVE_OBJECT:
@@ -527,8 +531,16 @@ bool MIRGraph::BasicBlockOpt(BasicBlock* bb) {
          * transfers to the rejoin block and the fall_though edge goes to a block that
          * unconditionally falls through to the rejoin block.
          */
-        if ((tk_ft == NULL) && (ft_tk == NULL) && (tk_tk == ft_ft) &&
-            (Predecessors(tk) == 1) && (Predecessors(ft) == 1)) {
+        // The condition that only one path from taken block of the block bb
+        bool cond_tk = ((tk_ft != nullptr) && (tk_tk == nullptr)) || ((tk_ft == nullptr) && (tk_tk != nullptr));
+
+        // The condition that only one path from fallthrough block of the block bb
+        bool cond_ft = ((ft_tk != nullptr) && (ft_ft == nullptr)) || ((ft_tk == nullptr) && (ft_ft != nullptr));
+
+        // The condition that the path from taken block of the bb and the path from fallthrough
+        // block of the bb will join
+        bool cond_join = (tk_tk == ft_ft) || (tk_ft == ft_ft);
+        if (cond_tk && cond_ft && cond_join && (Predecessors(tk) == 1) && (Predecessors(ft) == 1)) {
           /*
            * Okay - we have the basic diamond shape.  At the very least, we can eliminate the
            * suspend check on the taken-taken branch back to the join point.
@@ -540,17 +552,30 @@ bool MIRGraph::BasicBlockOpt(BasicBlock* bb) {
           // TODO: Add logic for LONG.
           // Are the block bodies something we can handle?
           if ((ft->first_mir_insn == ft->last_mir_insn) &&
-              (tk->first_mir_insn != tk->last_mir_insn) &&
-              (tk->first_mir_insn->next == tk->last_mir_insn) &&
+              // taken block of bb either have one mir or have two mirs and the last mir is a GOTO
+              ((tk->first_mir_insn == tk->last_mir_insn) ||
+              ((tk->first_mir_insn->next == tk->last_mir_insn) &&
+               (SelectKind(tk->last_mir_insn) == kSelectGoto))) &&
+              // fallthrough block of bb contains either a move mir or a const mir and
+              // the first mir in taken block of bb should have the same type as the first mir
+              // in fallthrough block of bb
               ((SelectKind(ft->first_mir_insn) == kSelectMove) ||
-              (SelectKind(ft->first_mir_insn) == kSelectConst)) &&
-              (SelectKind(ft->first_mir_insn) == SelectKind(tk->first_mir_insn)) &&
-              (SelectKind(tk->last_mir_insn) == kSelectGoto)) {
+               (SelectKind(ft->first_mir_insn) == kSelectConst)) &&
+              (SelectKind(ft->first_mir_insn) == SelectKind(tk->first_mir_insn))) {
             // Almost there.  Are the instructions targeting the same vreg?
             MIR* if_true = tk->first_mir_insn;
             MIR* if_false = ft->first_mir_insn;
             // It's possible that the target of the select isn't used - skip those (rare) cases.
-            MIR* phi = FindPhi(tk_tk, if_true->ssa_rep->defs[0]);
+            MIR* phi;
+            // If taken block of taken path is not null, find the merge phi node using the taken
+            // block of the taken path, otherwise, fallthrough block of taken path must not be NULL
+            // and find the merge phi node using the fallthrough block of the taken path
+            if (tk_tk != nullptr) {
+              phi = FindPhi(tk_tk, if_true->ssa_rep->defs[0]);
+            } else {
+              DCHECK(tk_ft != nullptr);
+              phi = FindPhi(tk_ft, if_true->ssa_rep->defs[0]);
+            }
             if ((phi != NULL) && (if_true->dalvikInsn.vA == if_false->dalvikInsn.vA)) {
               /*
                * We'll convert the IF_EQZ/IF_NEZ to a SELECT.  We need to find the
@@ -571,19 +596,33 @@ bool MIRGraph::BasicBlockOpt(BasicBlock* bb) {
                     if_false->dalvikInsn.vB = ConstantValue(if_false->ssa_rep->uses[0]);
                 }
               }
+              // set source to compare for Select mir with vA in if
+              mir->dalvikInsn.arg[0] = mir->dalvikInsn.vA;
+              // set destination VR for Select mir
+              mir->dalvikInsn.vA = if_true->dalvikInsn.vA;
               if (const_form) {
                 /*
                  * TODO: If both constants are the same value, then instead of generating
                  * a select, we should simply generate a const bytecode. This should be
                  * considered after inlining which can lead to CFG of this form.
                  */
+
                 // "true" set val in vB
                 mir->dalvikInsn.vB = if_true->dalvikInsn.vB;
                 // "false" set val in vC
                 mir->dalvikInsn.vC = if_false->dalvikInsn.vB;
+                // set flag to 1 for constant form
+                mir->dalvikInsn.arg[1] = 1;
               } else {
                 DCHECK_EQ(SelectKind(if_true), kSelectMove);
                 DCHECK_EQ(SelectKind(if_false), kSelectMove);
+
+                // set vB for Select mir with vB of mov mir in taken path
+                mir->dalvikInsn.vB = if_true->dalvikInsn.vB;
+                // set vC for Select mir with vB of mov mir in fallthrough path
+                mir->dalvikInsn.vC = if_false->dalvikInsn.vB;
+                // set flag to 0 for mov form
+                mir->dalvikInsn.arg[1] = 0;
                 int* src_ssa =
                     static_cast<int*>(arena_->Alloc(sizeof(int) * 3, kArenaAllocDFInfo));
                 src_ssa[0] = mir->ssa_rep->uses[0];
@@ -806,6 +845,14 @@ void MIRGraph::EliminateNullChecksAndInferTypesStart() {
     temp_bit_vector_size_ = GetNumSSARegs();
     temp_bit_vector_ = new (temp_scoped_alloc_.get()) ArenaBitVector(
         temp_scoped_alloc_.get(), temp_bit_vector_size_, false, kBitMapTempSSARegisterV);
+
+    // reset MIR_MARK
+    AllNodesIterator iter(this);
+    for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
+      for (MIR* mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+        mir->optimization_flags &= ~MIR_MARK;
+      }
+    }
   }
 }
 
@@ -913,11 +960,10 @@ bool MIRGraph::EliminateNullChecksAndInferTypes(BasicBlock* bb) {
       int src_sreg = mir->ssa_rep->uses[src_idx];
       if (!ssa_regs_to_check->IsBitSet(src_sreg)) {
         // Eliminate the null check.
-        mir->optimization_flags |= MIR_IGNORE_NULL_CHECK;
+        mir->optimization_flags |= MIR_MARK;
       } else {
         // Do the null check.
-        mir->optimization_flags &= ~MIR_IGNORE_NULL_CHECK;
-        // Mark s_reg as null-checked
+        mir->optimization_flags &= ~MIR_MARK;
         ssa_regs_to_check->ClearBit(src_sreg);
       }
     }
@@ -1015,13 +1061,20 @@ bool MIRGraph::EliminateNullChecksAndInferTypes(BasicBlock* bb) {
 
 void MIRGraph::EliminateNullChecksAndInferTypesEnd() {
   if ((cu_->disable_opt & (1 << kNullCheckElimination)) == 0) {
-    // Clean up temporaries.
+    // Clean up temporaries and converge MIR_MARK with MIR_IGNORE_NULL_CHECK
     temp_bit_vector_size_ = 0u;
     temp_bit_vector_ = nullptr;
     AllNodesIterator iter(this);
+    const int MARK_TO_IGNORE_NULL_CHECK_SHIFT = kMIRMark - kMIRIgnoreNullCheck;
+    DCHECK(MARK_TO_IGNORE_NULL_CHECK_SHIFT > 0);
     for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
       if (bb->data_flow_info != nullptr) {
         bb->data_flow_info->ending_check_v = nullptr;
+      }
+      for (MIR* mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+        uint16_t mirMarkAdjustedToIgnoreNullCheck =
+            (mir->optimization_flags & MIR_MARK) >> MARK_TO_IGNORE_NULL_CHECK_SHIFT;
+        mir->optimization_flags |= mirMarkAdjustedToIgnoreNullCheck;
       }
     }
     DCHECK(temp_scoped_alloc_.get() != nullptr);
