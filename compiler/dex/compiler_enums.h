@@ -572,7 +572,7 @@ enum SelectInstructionKind {
 
 std::ostream& operator<<(std::ostream& os, const SelectInstructionKind& kind);
 
-// LIR fixup kinds for Arm
+// LIR fixup kinds for Arm and X86.
 enum FixupKind {
   kFixupNone,
   kFixupLabel,       // For labels we just adjust the offset.
@@ -589,6 +589,7 @@ enum FixupKind {
   kFixupMovImmLST,   // kThumb2MovImm16LST.
   kFixupMovImmHST,   // kThumb2MovImm16HST.
   kFixupAlign4,      // Align to 4-byte boundary.
+  kFixupSwitchTable,  // X86_64 packed switch table.
 };
 
 std::ostream& operator<<(std::ostream& os, const FixupKind& kind);

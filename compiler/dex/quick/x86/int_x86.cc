@@ -1212,6 +1212,18 @@ bool X86Mir2Lir::GenInlinedCas(CallInfo* info, bool is_long, bool is_object) {
 }
 
 LIR* X86Mir2Lir::OpPcRelLoad(RegStorage reg, LIR* target) {
+  if (cu_->target64) {
+    // We can do this directly using RIP addressing.
+    // We don't know the proper offset for the value, so pick one that will force
+    // 4 byte offset.  We will fix this up in the assembler later to have the right
+    // value.
+    ScopedMemRefType mem_ref_type(this, ResourceMask::kLiteral);
+    LIR* res = NewLIR3(kX86Mov32RM, reg.GetReg(), kRIPReg, 256);
+    res->target = target;
+    res->flags.fixup = kFixupLoad;
+    return res;
+  }
+
   CHECK(base_of_code_ != nullptr);
 
   // Address the start of the method
@@ -1232,7 +1244,6 @@ LIR* X86Mir2Lir::OpPcRelLoad(RegStorage reg, LIR* target) {
                     0, 0, target);
   res->target = target;
   res->flags.fixup = kFixupLoad;
-  store_method_addr_used_ = true;
   return res;
 }
 
