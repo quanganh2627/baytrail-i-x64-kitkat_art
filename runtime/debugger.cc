@@ -4293,6 +4293,12 @@ class HeapChunkContext {
     size_t needed = (((length/ALLOCATION_UNIT_SIZE + 255) / 256) * 2) + 17;
     size_t bytesLeft = buf_.size() - (size_t)(p_ - &buf_[0]);
     if (bytesLeft < needed) {
+#ifdef USE_DLMALLOC
+      // Cannot trigger memory allocation while walking native heap.
+      if (type_ == CHUNK_TYPE("NHSG")) {
+        return;
+      }
+#endif
       Flush();
     }
 
@@ -4418,7 +4424,9 @@ void Dbg::DdmSendHeapSegments(bool native) {
   HeapChunkContext context((what == HPSG_WHAT_MERGED_OBJECTS), native);
   if (native) {
 #ifdef USE_DLMALLOC
+    ReaderMutexLock mu(self, *Locks::heap_bitmap_lock_);
     dlmalloc_inspect_all(HeapChunkContext::HeapChunkCallback, &context);
+    HeapChunkContext::HeapChunkCallback(NULL, NULL, 0, &context);  // Indicate end of a space.
 #else
     UNIMPLEMENTED(WARNING) << "Native heap inspection is only supported with dlmalloc";
 #endif
