@@ -282,8 +282,7 @@ enum MIROptimizationFlagPositions {
   kMIRCallee,                         // Instruction is inlined from callee.
   kMIRIgnoreSuspendCheck,
   kMIRDup,
-  kMIRMark,                           // Temporary node mark can be used by
-                                      // opt passes for their private needs.
+  kMIRMark,                           // Temporary node mark.
   kMIRStoreNonTemporal,
   kMIRLastMIRFlag,
 };
