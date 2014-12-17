@@ -40,6 +40,7 @@
 #include "dex/selectivity.h"
 #include "dex_file-inl.h"
 #include "dex/pass_driver_me_opts.h"
+#include "dex/pass_driver_me_post_opt.h"
 #include "dex/verification_results.h"
 #include "dex/quick_compiler_callbacks.h"
 #include "dex/quick/dex_file_to_method_inliner_map.h"
@@ -225,8 +226,6 @@ static void Usage(const char* fmt, ...) {
   UsageError("      Example: --runtime-arg -Xms256m");
   UsageError("");
   UsageError("  --profile-file=<filename>: specify profiler output file to use for compilation.");
-  UsageError("");
-  UsageError("  --print-pass-names: print a list of pass names");
 #ifndef HAVE_ANDROID_OS
   UsageError("");
   UsageError("  --plugin-loading-folder:<name of the folder>");
@@ -240,10 +239,17 @@ static void Usage(const char* fmt, ...) {
   UsageError("");
   UsageError("  --swap-fd=<file-descriptor>:  specifies a file to use for swap (by descriptor).");
   UsageError("      Example: --swap-fd=10");
+  UsageError("  --print-pass-names: print the names of the available passes.");
+  UsageError("");
+  UsageError("  --print-passes=Pass1Name;Pass2Name: print the output of the requested passes.");
+  UsageError("");
+  UsageError("  --print-all-passes: print the output of all the available passes.");
   UsageError("");
   UsageError("  --print-pass-options: print a list of passes that have configurable options along "
              "with the setting.");
   UsageError("      Will print default if no overridden setting exists.");
+  UsageError("");
+  UsageError("  --dump-cfg-passes=Pass1Name,Pass2Name: Dumps the CFG of the requested passes.");
   UsageError("");
   UsageError("  --pass-options=Pass1Name:Pass1OptionName:Pass1Option#,"
              "Pass2Name:Pass2OptionName:Pass2Option#");
@@ -1141,16 +1147,19 @@ static int dex2oat(int argc, char** argv) {
     } else if (option.starts_with("--print-passes=")) {
       std::string print_passes = option.substr(strlen("--print-passes=")).data();
       PassDriverMEOpts::SetPrintPassList(print_passes);
+      PassDriverMEPostOpt::SetPrintPassList(print_passes);
     } else if (option == "--print-all-passes") {
       PassDriverMEOpts::SetPrintAllPasses();
     } else if (option.starts_with("--dump-cfg-passes=")) {
       std::string dump_passes = option.substr(strlen("--dump-cfg-passes=")).data();
       PassDriverMEOpts::SetDumpPassList(dump_passes);
+      PassDriverMEPostOpt::SetDumpPassList(dump_passes);
     } else if (option == "--print-pass-options") {
       print_pass_options = true;
     } else if (option.starts_with("--pass-options=")) {
       std::string options = option.substr(strlen("--pass-options=")).data();
       PassDriverMEOpts::SetOverriddenPassOptions(options);
+      PassDriverMEPostOpt::SetOverriddenPassOptions(options);
     } else if (option == "--include-patch-information") {
       include_patch_information = true;
     } else if (option == "--no-include-patch-information") {
@@ -1321,10 +1330,12 @@ static int dex2oat(int argc, char** argv) {
 
   if (!disable_passes.empty()) {
       PassDriverMEOpts::CreateDefaultPassList(disable_passes);
+      PassDriverMEPostOpt::CreateDefaultPassList(disable_passes);
   }
 
   if (print_pass_names) {
       PassDriverMEOpts::PrintPassNames();
+      PassDriverMEPostOpt::PrintPassNames();
   }
 
   // Set the compilation target's implicit checks options.
@@ -1345,6 +1356,7 @@ static int dex2oat(int argc, char** argv) {
 
   if (print_pass_options) {
     PassDriverMEOpts::PrintPassOptions();
+    PassDriverMEPostOpt::PrintPassOptions();
   }
 
   std::unique_ptr<CompilerOptions> compiler_options(new CompilerOptions(compiler_filter,
