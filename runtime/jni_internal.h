@@ -90,6 +90,8 @@ class JavaVMExt : public JavaVM {
 
   void DisallowNewWeakGlobals() EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_);
   void AllowNewWeakGlobals() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  jobject AddGlobalRef(Thread* self, mirror::Object* obj)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   jweak AddWeakGlobalReference(Thread* self, mirror::Object* obj)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   void DeleteWeakGlobalRef(Thread* self, jweak obj)
@@ -122,6 +124,9 @@ class JavaVMExt : public JavaVM {
 
   // Used by -Xcheck:jni.
   const JNIInvokeInterface* unchecked_functions;
+
+  void TrimGlobals() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      LOCKS_EXCLUDED(globals_lock);
 
  private:
   // TODO: Make the other members of this class also private.
