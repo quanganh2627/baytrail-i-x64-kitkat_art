@@ -3141,6 +3141,16 @@ JavaVMExt::~JavaVMExt() {
   delete libraries;
 }
 
+jobject JavaVMExt::AddGlobalRef(Thread* self, mirror::Object* obj) {
+  // Check for null after decoding the object to handle cleared weak globals.
+  if (obj == nullptr) {
+    return nullptr;
+  }
+  WriterMutexLock mu(self, globals_lock);
+  IndirectRef ref = globals.Add(IRT_FIRST_SEGMENT, obj);
+  return reinterpret_cast<jobject>(ref);
+}
+
 jweak JavaVMExt::AddWeakGlobalReference(Thread* self, mirror::Object* obj) {
   if (obj == nullptr) {
     return nullptr;
@@ -3395,6 +3405,11 @@ void* JavaVMExt::FindCodeForNativeMethod(mirror::ArtMethod* m) {
     self->ThrowNewException(throw_location, "Ljava/lang/UnsatisfiedLinkError;", detail.c_str());
   }
   return native_method;
+}
+
+void JavaVMExt::TrimGlobals() {
+  WriterMutexLock mu(Thread::Current(), globals_lock);
+  globals.Trim();
 }
 
 void JavaVMExt::SweepJniWeakGlobals(IsMarkedCallback* callback, void* arg) {
