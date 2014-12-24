@@ -181,7 +181,6 @@ int MIRGraph::ParseInsn(const uint16_t* code_ptr, MIR::DecodedInstruction* decod
 /* Split an existing block from the specified code offset into two */
 BasicBlock* MIRGraph::SplitBlock(DexOffset code_offset,
                                  BasicBlock* orig_block, BasicBlock** immed_pred_block_p) {
-  DCHECK_GT(code_offset, orig_block->start_offset);
   MIR* insn = orig_block->first_mir_insn;
   MIR* prev = NULL;  // Will be set to instruction before split.
   while (insn) {
