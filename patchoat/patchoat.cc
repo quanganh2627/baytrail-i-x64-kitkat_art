@@ -709,6 +709,11 @@ bool PatchOat::PatchElf() {
     }
   }
 
+  t.NewTiming("Fixup Debug Sections");
+  if (!oat_file_->FixupDebugSections(delta_)) {
+    return false;
+  }
+
   return true;
 }
 
