@@ -367,6 +367,7 @@ CompilerDriver::CompilerDriver(const CompilerOptions* compiler_options,
       support_boot_image_fixup_(instruction_set != kMips),
       // Use actual deduping only if we don't use swap.
       dedupe_code_("dedupe code", *swap_space_allocator_),
+      dedupe_src_mapping_table_("dedupe source mapping table", *swap_space_allocator_),
       dedupe_mapping_table_("dedupe mapping table", *swap_space_allocator_),
       dedupe_vmap_table_("dedupe vmap table", *swap_space_allocator_),
       dedupe_gc_map_("dedupe gc map", *swap_space_allocator_),
@@ -405,6 +406,10 @@ SwapVector<uint8_t>* CompilerDriver::DeduplicateCode(const ArrayRef<const uint8_
 
 SwapVector<uint8_t>* CompilerDriver::DeduplicateMappingTable(const ArrayRef<const uint8_t>& code) {
   return dedupe_mapping_table_.Add(Thread::Current(), code);
+}
+
+SwapSrcMap* CompilerDriver::DeduplicateSrcMappingTable(const ArrayRef<SrcMapElem>& src_map) {
+  return dedupe_src_mapping_table_.Add(Thread::Current(), src_map);
 }
 
 SwapVector<uint8_t>* CompilerDriver::DeduplicateVMapTable(const ArrayRef<const uint8_t>& code) {
@@ -2300,6 +2305,7 @@ std::string CompilerDriver::GetMemoryUsageString() const {
     oss << " swap=" << PrettySize(swap_space_->GetSize());
   }
   oss << "\nCode dedupe: " << dedupe_code_.DumpStats();
+  oss << "\nSource mapping table dedupe: " << dedupe_src_mapping_table_.DumpStats();
   oss << "\nMapping table dedupe: " << dedupe_mapping_table_.DumpStats();
   oss << "\nVmap table dedupe: " << dedupe_vmap_table_.DumpStats();
   oss << "\nGC map dedupe: " << dedupe_gc_map_.DumpStats();
