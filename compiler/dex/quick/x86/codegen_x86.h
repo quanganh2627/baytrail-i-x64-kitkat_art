@@ -889,8 +889,8 @@ class X86Mir2Lir : public Mir2Lir {
    * the value is live in a temp register of the correct class.  Additionally, if the value is in
    * a temp register of the wrong register class, it will be clobbered.
    */
-  RegLocation UpdateLocTyped(RegLocation loc, int reg_class);
-  RegLocation UpdateLocWideTyped(RegLocation loc, int reg_class);
+  virtual RegLocation UpdateLocTyped(RegLocation loc, int reg_class);
+  virtual RegLocation UpdateLocWideTyped(RegLocation loc, int reg_class);
 
   /*
    * @brief Analyze MIR before generating code, to prepare for the code generation.
