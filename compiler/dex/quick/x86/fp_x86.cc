@@ -607,8 +607,12 @@ void X86Mir2Lir::GenNegDouble(RegLocation rl_dest, RegLocation rl_src) {
 }
 
 bool X86Mir2Lir::GenInlinedSqrt(CallInfo* info) {
-  RegLocation rl_src = info->args[0];
   RegLocation rl_dest = InlineTargetWide(info);  // double place for result
+  if (rl_dest.s_reg_low == INVALID_SREG) {
+    // Result is unused, the code is dead. Inlining successful, no code generated.
+    return true;
+  }
+  RegLocation rl_src = info->args[0];
   rl_src = LoadValueWide(rl_src, kFPReg);
   RegLocation rl_result = EvalLoc(rl_dest, kFPReg, true);
   NewLIR2(kX86SqrtsdRR, rl_result.reg.GetReg(), rl_src.reg.GetReg());
@@ -730,9 +734,13 @@ bool X86Mir2Lir::GenInlinedAbsDouble(CallInfo* info) {
 
 bool X86Mir2Lir::GenInlinedMinMaxFP(CallInfo* info, bool is_min, bool is_double) {
   if (is_double) {
+    RegLocation rl_dest = InlineTargetWide(info);
+    if (rl_dest.s_reg_low == INVALID_SREG) {
+      // Result is unused, the code is dead. Inlining successful, no code generated.
+      return true;
+    }
     RegLocation rl_src1 = LoadValueWide(info->args[0], kFPReg);
     RegLocation rl_src2 = LoadValueWide(info->args[2], kFPReg);
-    RegLocation rl_dest = InlineTargetWide(info);
     RegLocation rl_result = EvalLocWide(rl_dest, kFPReg, true);
 
     // Avoid src2 corruption by OpRegCopyWide.
@@ -783,9 +791,13 @@ bool X86Mir2Lir::GenInlinedMinMaxFP(CallInfo* info, bool is_min, bool is_double)
     branch_exit_equal->target = NewLIR0(kPseudoTargetLabel);
     StoreValueWide(rl_dest, rl_result);
   } else {
+    RegLocation rl_dest = InlineTarget(info);
+    if (rl_dest.s_reg_low == INVALID_SREG) {
+      // Result is unused, the code is dead. Inlining successful, no code generated.
+      return true;
+    }
     RegLocation rl_src1 = LoadValue(info->args[0], kFPReg);
     RegLocation rl_src2 = LoadValue(info->args[1], kFPReg);
-    RegLocation rl_dest = InlineTarget(info);
     RegLocation rl_result = EvalLoc(rl_dest, kFPReg, true);
 
     // Avoid src2 corruption by OpRegCopyWide.

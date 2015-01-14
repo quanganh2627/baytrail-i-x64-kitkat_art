@@ -832,6 +832,10 @@ bool X86Mir2Lir::GenInlinedMinMax(CallInfo* info, bool is_min, bool is_long) {
     RegLocation rl_src1 = info->args[0];
     RegLocation rl_src2 = info->args[2];
     RegLocation rl_dest = InlineTargetWide(info);
+    if (rl_dest.s_reg_low == INVALID_SREG) {
+      // Result is unused, the code is dead. Inlining successful, no code generated.
+      return true;
+    }
     int res_vreg, src1_vreg, src2_vreg;
 
     if (rl_dest.s_reg_low == INVALID_SREG) {
@@ -919,12 +923,16 @@ bool X86Mir2Lir::GenInlinedMinMax(CallInfo* info, bool is_min, bool is_long) {
   }
 
   // Get the two arguments to the invoke and place them in GP registers.
+  RegLocation rl_dest = (is_long) ? InlineTargetWide(info) : InlineTarget(info);
+  if (rl_dest.s_reg_low == INVALID_SREG) {
+    // Result is unused, the code is dead. Inlining successful, no code generated.
+    return true;
+  }
   RegLocation rl_src1 = info->args[0];
   RegLocation rl_src2 = (is_long) ? info->args[2] : info->args[1];
   rl_src1 = (is_long) ? LoadValueWide(rl_src1, kCoreReg) : LoadValue(rl_src1, kCoreReg);
   rl_src2 = (is_long) ? LoadValueWide(rl_src2, kCoreReg) : LoadValue(rl_src2, kCoreReg);
 
-  RegLocation rl_dest = (is_long) ? InlineTargetWide(info) : InlineTarget(info);
   RegLocation rl_result = EvalLoc(rl_dest, kCoreReg, true);
 
   /*
@@ -959,6 +967,11 @@ bool X86Mir2Lir::GenInlinedMinMax(CallInfo* info, bool is_min, bool is_long) {
 }
 
 bool X86Mir2Lir::GenInlinedPeek(CallInfo* info, OpSize size) {
+  RegLocation rl_dest = size == k64 ? InlineTargetWide(info) : InlineTarget(info);
+  if (rl_dest.s_reg_low == INVALID_SREG) {
+    // Result is unused, the code is dead. Inlining successful, no code generated.
+    return true;
+  }
   RegLocation rl_src_address = info->args[0];  // long address
   RegLocation rl_address;
   if (!cu_->target64) {
@@ -967,7 +980,6 @@ bool X86Mir2Lir::GenInlinedPeek(CallInfo* info, OpSize size) {
   } else {
     rl_address = LoadValueWide(rl_src_address, kCoreReg);
   }
-  RegLocation rl_dest = size == k64 ? InlineTargetWide(info) : InlineTarget(info);
   RegLocation rl_result = EvalLoc(rl_dest, kCoreReg, true);
   // Unaligned access is allowed on x86.
   LoadBaseDisp(rl_address.reg, 0, rl_result.reg, size, kNotVolatile);
