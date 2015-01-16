@@ -839,7 +839,7 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   0,
 
   // 10D MIR_SELECT
-  DF_DA | DF_UB,
+  DF_FORMAT_EXTENDED,
 
   // 10E MirOpConstVector
   0,
@@ -949,6 +949,14 @@ void MIRGraph::HandleExtended(ArenaBitVector* use_v, ArenaBitVector* def_v,
       HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB);
       if (is_vector_type_wide == true) {
         HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB + 1);
+      }
+      break;
+    case kMirOpSelect:
+      HandleDef(def_v, d_insn.vA);
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.arg[0]);
+      if (d_insn.arg[1] != 1) {
+        HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB);
+        HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vC);
       }
       break;
     default:
@@ -1139,6 +1147,19 @@ void MIRGraph::DataFlowSSAFormatExtended(MIR* mir) {
         HandleSSAUse(mir->ssa_rep->uses, d_insn.vB + 1, 1);
       }
       break;
+    case kMirOpSelect:
+      if (d_insn.arg[1] == 1) {
+        AllocateSSAUseData(mir, 1);
+        HandleSSAUse(mir->ssa_rep->uses, d_insn.arg[0], 0);
+      } else {
+        AllocateSSAUseData(mir, 3);
+        HandleSSAUse(mir->ssa_rep->uses, d_insn.arg[0], 0);
+        HandleSSAUse(mir->ssa_rep->uses, d_insn.vB, 1);
+        HandleSSAUse(mir->ssa_rep->uses, d_insn.vC, 2);
+      }
+      AllocateSSADefData(mir, 1);
+      HandleSSADef(mir->ssa_rep->defs, d_insn.vA, 0);
+      break;
     default:
       LOG(ERROR) << "Missing case for extended MIR: " << mir->dalvikInsn.opcode;
       break;
@@ -1272,6 +1293,36 @@ bool MIRGraph::DoSSAConversion(BasicBlock* bb) {
   return true;
 }
 
+void MIRGraph::InitializeBasicBlockDataFlow() {
+  /*
+   * Allocate the BasicBlockDataFlow structure for the entry and code blocks.
+   */
+  for (BasicBlock* bb : block_list_) {
+    // Hidden blocks do not need handled since they are not visible.
+    if (bb->hidden == true) {
+      continue;
+    }
+
+    // Algorithms like GC map calculator need all DF calculated.
+    bool should_calculate_all_blocks = NeedGcMapRecalculation();
+
+    if (bb->block_type == kDalvikByteCode ||
+        bb->block_type == kEntryBlock ||
+        bb->block_type == kExitBlock ||
+        should_calculate_all_blocks) {
+      size_t df_info_size = sizeof(BasicBlockDataFlow);
+      if (bb->data_flow_info == nullptr) {
+        bb->data_flow_info =
+            static_cast<BasicBlockDataFlow*>(arena_->Alloc(df_info_size,
+                                                           kArenaAllocDFInfo));
+      } else {
+        // Instead of reallocating, just clear it out.
+        memset(bb->data_flow_info, 0, df_info_size);
+      }
+    }
+  }
+}
+
 /* Setup the basic data structures for SSA conversion */
 void MIRGraph::CompilerInitializeSSAConversion() {
   size_t num_reg = GetNumOfCodeAndTempVRs();
@@ -1335,56 +1386,7 @@ void MIRGraph::CompilerInitializeSSAConversion() {
                                                          kArenaAllocDFInfo));
       }
   }
-}
-
-/*
- * This function will make a best guess at whether the invoke will
- * end up using Method*.  It isn't critical to get it exactly right,
- * and attempting to do would involve more complexity than it's
- * worth.
- */
-bool MIRGraph::InvokeUsesMethodStar(MIR* mir) {
-  InvokeType type;
-  Instruction::Code opcode = mir->dalvikInsn.opcode;
-  switch (opcode) {
-    case Instruction::INVOKE_STATIC:
-    case Instruction::INVOKE_STATIC_RANGE:
-      type = kStatic;
-      break;
-    case Instruction::INVOKE_DIRECT:
-    case Instruction::INVOKE_DIRECT_RANGE:
-      type = kDirect;
-      break;
-    case Instruction::INVOKE_VIRTUAL:
-    case Instruction::INVOKE_VIRTUAL_RANGE:
-      type = kVirtual;
-      break;
-    case Instruction::INVOKE_INTERFACE:
-    case Instruction::INVOKE_INTERFACE_RANGE:
-      return false;
-    case Instruction::INVOKE_SUPER_RANGE:
-    case Instruction::INVOKE_SUPER:
-      type = kSuper;
-      break;
-    default:
-      LOG(WARNING) << "Unexpected invoke op: " << opcode;
-      return false;
-  }
-  DexCompilationUnit m_unit(cu_);
-  MethodReference target_method(cu_->dex_file, mir->dalvikInsn.vB);
-  int vtable_idx;
-  uintptr_t direct_code;
-  uintptr_t direct_method;
-  uint32_t current_offset = static_cast<uint32_t>(current_offset_);
-  bool fast_path =
-      cu_->compiler_driver->ComputeInvokeInfo(&m_unit, current_offset,
-                                              false, true,
-                                              &type, &target_method,
-                                              &vtable_idx,
-                                              &direct_code, &direct_method) &&
-                                              !(cu_->enable_debug & (1 << kDebugSlowInvokePath));
-  return (((type == kDirect) || (type == kStatic)) &&
-          fast_path && ((direct_code == 0) || (direct_method == 0)));
+  InitializeBasicBlockDataFlow();
 }
 
 /*

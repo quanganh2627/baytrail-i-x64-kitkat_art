@@ -689,7 +689,7 @@ class Mir2Lir : public Backend {
     int AssignSwitchTablesOffset(CodeOffset offset);
     int AssignFillArrayDataOffset(CodeOffset offset);
     virtual LIR* InsertCaseLabel(DexOffset vaddr, int keyVal);
-    void MarkPackedCaseLabels(Mir2Lir::SwitchTable* tab_rec);
+    virtual void MarkPackedCaseLabels(Mir2Lir::SwitchTable* tab_rec);
     void MarkSparseCaseLabels(Mir2Lir::SwitchTable* tab_rec);
 
     virtual void StartSlowPath(LIRSlowPath* slowpath) {}
@@ -825,6 +825,7 @@ class Mir2Lir : public Backend {
     void GenCompareZeroAndBranch(Instruction::Code opcode, RegLocation rl_src,
                                  LIR* taken, LIR* fall_through);
     virtual void GenIntToLong(RegLocation rl_dest, RegLocation rl_src);
+    virtual void GenLongToInt(RegLocation rl_dest, RegLocation rl_src);
     void GenIntNarrowing(Instruction::Code opcode, RegLocation rl_dest,
                          RegLocation rl_src);
     void GenNewArray(uint32_t type_idx, RegLocation rl_dest,
@@ -1029,7 +1030,7 @@ class Mir2Lir : public Backend {
      * @param rl_dest The destination dalvik register location.
      * @param rl_src The source register location. Can be either physical register or dalvik register.
      */
-    virtual void StoreValue(RegLocation rl_dest, RegLocation rl_src);
+    virtual void StoreValue(RegLocation rl_dest, RegLocation rl_src, bool discard_high_bits = false);
 
     /**
      * @brief Used to do the final store in a wide destination as per bytecode semantics.
@@ -1263,6 +1264,23 @@ class Mir2Lir : public Backend {
     virtual bool GenInlinedMinMax(CallInfo* info, bool is_min, bool is_long) = 0;
     virtual bool GenInlinedMinMaxFP(CallInfo* info, bool is_min, bool is_double);
 
+    virtual bool GenInlinedCos(CallInfo* info) { return false; }
+    virtual bool GenInlinedSin(CallInfo* info) { return false; }
+    virtual bool GenInlinedAcos(CallInfo* info) { return false; }
+    virtual bool GenInlinedAsin(CallInfo* info) { return false; }
+    virtual bool GenInlinedAtan(CallInfo* info) {return false; }
+    virtual bool GenInlinedAtan2(CallInfo* info) { return false; }
+    virtual bool GenInlinedCbrt(CallInfo* info) {return false; }
+    virtual bool GenInlinedCosh(CallInfo* info) { return false; }
+    virtual bool GenInlinedExp(CallInfo* info) { return false; }
+    virtual bool GenInlinedExpm1(CallInfo* info) { return false; }
+    virtual bool GenInlinedHypot(CallInfo* info) { return false; }
+    virtual bool GenInlinedLog(CallInfo* info) { return false; }
+    virtual bool GenInlinedLog10(CallInfo* info) { return false; }
+    virtual bool GenInlinedNextAfter(CallInfo* info) { return false; }
+    virtual bool GenInlinedSinh(CallInfo* info) { return false; }
+    virtual bool GenInlinedTan(CallInfo* info) { return false; }
+    virtual bool GenInlinedTanh(CallInfo* info) { return false; }
     virtual bool GenInlinedSqrt(CallInfo* info) = 0;
     virtual bool GenInlinedPeek(CallInfo* info, OpSize size) = 0;
     virtual bool GenInlinedPoke(CallInfo* info, OpSize size) = 0;

@@ -70,6 +70,7 @@ LIBART_COMPILER_SRC_FILES := \
 	dex/frontend.cc \
 	dex/mir_graph.cc \
 	dex/mir_analysis.cc \
+	dex/reference_map_calculator.cc \
 	dex/verified_method.cc \
 	dex/verification_results.cc \
 	dex/vreg_analysis.cc \
@@ -216,6 +217,17 @@ $$(ENUM_OPERATOR_OUT_GEN): $$(GENERATED_SRC_DIR)/%_operator_out.cc : $(LOCAL_PAT
 	$$(transform-generated-source)
 
   LOCAL_GENERATED_SOURCES += $$(ENUM_OPERATOR_OUT_GEN)
+
+  GENERATED_SRC_DIR := $$(call local-generated-sources-dir)
+  SHA_VERSION := $$(GENERATED_SRC_DIR)/sha_version.h
+
+$$(SHA_VERSION): PRIVATE_CUSTOM_TOOL = art/tools/gen_sha.py -p art -o $$@
+$$(SHA_VERSION):
+	rm -f art/compiler/sha_version.h
+	$$(transform-generated-source)
+.PHONY: $$(SHA_VERSION)
+
+  LOCAL_GENERATED_SOURCES += $$(SHA_VERSION)
 
   LOCAL_CFLAGS := $$(LIBART_COMPILER_CFLAGS)
   include external/libcxx/libcxx.mk

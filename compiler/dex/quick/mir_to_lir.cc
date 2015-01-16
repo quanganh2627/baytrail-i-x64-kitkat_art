@@ -900,9 +900,7 @@ void Mir2Lir::CompileDalvikInstruction(MIR* mir, BasicBlock* bb, LIR* label_list
       break;
 
     case Instruction::LONG_TO_INT:
-      rl_src[0] = UpdateLocWide(rl_src[0]);
-      rl_src[0] = NarrowRegLoc(rl_src[0]);
-      StoreValue(rl_dest, rl_src[0]);
+      GenLongToInt(rl_dest, rl_src[0]);
       break;
 
     case Instruction::INT_TO_BYTE:
@@ -1177,7 +1175,7 @@ bool Mir2Lir::MethodBlockCodeGen(BasicBlock* bb) {
     if (opcode == kMirOpCheck) {
       // Combine check and work halves of throwing instruction.
       MIR* work_half = mir->meta.throw_insn;
-      mir->dalvikInsn.opcode = work_half->dalvikInsn.opcode;
+      mir->dalvikInsn = work_half->dalvikInsn;
       mir->meta = work_half->meta;  // Whatever the work_half had, we need to copy it.
       opcode = work_half->dalvikInsn.opcode;
       SSARepresentation* ssa_rep = work_half->ssa_rep;

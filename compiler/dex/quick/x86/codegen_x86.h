@@ -161,6 +161,26 @@ class X86Mir2Lir : public Mir2Lir {
   bool GenInlinedMinMax(CallInfo* info, bool is_min, bool is_long) OVERRIDE;
   bool GenInlinedMinMaxFP(CallInfo* info, bool is_min, bool is_double) OVERRIDE;
   bool GenInlinedSqrt(CallInfo* info) OVERRIDE;
+  bool GenInlinedCos(CallInfo* info) OVERRIDE;
+  bool GenInlinedSin(CallInfo* info) OVERRIDE;
+  bool GenInlinedAcos(CallInfo* info) OVERRIDE;
+  bool GenInlinedAsin(CallInfo* info) OVERRIDE;
+  bool GenInlinedAtan(CallInfo* info) OVERRIDE;
+  bool GenInlinedAtan2(CallInfo* info) OVERRIDE;
+  bool GenInlinedCbrt(CallInfo* info) OVERRIDE;
+  bool GenInlinedCeil(CallInfo* info) OVERRIDE;
+  bool GenInlinedCosh(CallInfo* info) OVERRIDE;
+  bool GenInlinedExp(CallInfo* info) OVERRIDE;
+  bool GenInlinedExpm1(CallInfo* info) OVERRIDE;
+  bool GenInlinedFloor(CallInfo* info) OVERRIDE;
+  bool GenInlinedHypot(CallInfo* info) OVERRIDE;
+  bool GenInlinedLog(CallInfo* info) OVERRIDE;
+  bool GenInlinedLog10(CallInfo* info) OVERRIDE;
+  bool GenInlinedNextAfter(CallInfo* info) OVERRIDE;
+  bool GenInlinedRint(CallInfo* info) OVERRIDE;
+  bool GenInlinedSinh(CallInfo* info) OVERRIDE;
+  bool GenInlinedTan(CallInfo* info) OVERRIDE;
+  bool GenInlinedTanh(CallInfo* info) OVERRIDE;
   bool GenInlinedAbsFloat(CallInfo* info) OVERRIDE;
   bool GenInlinedAbsDouble(CallInfo* info) OVERRIDE;
   bool GenInlinedPeek(CallInfo* info, OpSize size) OVERRIDE;
@@ -247,8 +267,11 @@ class X86Mir2Lir : public Mir2Lir {
                                      int first_bit, int second_bit) OVERRIDE;
   void GenNegDouble(RegLocation rl_dest, RegLocation rl_src) OVERRIDE;
   void GenNegFloat(RegLocation rl_dest, RegLocation rl_src) OVERRIDE;
+  const uint16_t* ConvertPackedSwitchTable(MIR* mir, const uint16_t* table);
   void GenLargePackedSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) OVERRIDE;
   void GenLargeSparseSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) OVERRIDE;
+  LIR* InsertCaseLabel(DexOffset vaddr, int keyVal) OVERRIDE;
+  void MarkPackedCaseLabels(Mir2Lir::SwitchTable* tab_rec) OVERRIDE;
 
   /**
    * @brief Implement instanceof a final class with x86 specific code.

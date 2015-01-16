@@ -613,9 +613,25 @@ class MIRGraph {
     return num_blocks_;
   }
 
-  size_t GetNumDalvikInsns() const {
-    return cu_->code_item->insns_size_in_code_units_;
-  }
+  /**
+   * @brief Provides the total size in code units of all instructions in MIRGraph.
+   * @details Includes the sizes of all methods in compilation unit.
+   * @return Returns the cumulative sum of all insn sizes (in code units).
+   */
+  virtual size_t GetNumDalvikInsns() const;
+
+  /**
+   * @brief Used to provide a new, non-overlapping offset for instruction.
+   * @details For now, implementation assumes that each offset it reserves space
+   * for is 2 code units in size (the size of smallest instruction). Another
+   * approach is to allocate as per the dex size as dictated by encoding. However,
+   * since offsets are simply used as for disambiguation, we do not have to
+   * be strict about this.
+   * @param opcode The opcode to provide offset for.
+   * @return Returns a dex offset that does not overlap any others. This is guaranteed
+   * as long as everyone uses this interface.
+   */
+  virtual DexOffset GetNewOffset();
 
   ArenaBitVector* GetTryBlockAddr() const {
     return try_block_addr_;
@@ -672,13 +688,18 @@ class MIRGraph {
     return m_units_[current_method_];
   }
 
+  DexCompilationUnit* GetDexCompilationUnit(uint16_t m_unit_index) const {
+    return m_units_[m_unit_index];
+  }
+
   /**
    * @brief Dump a CFG into a dot file format.
    * @param dir_prefix the directory the file will be created in.
    * @param all_blocks does the dumper use all the basic blocks or use the reachable blocks.
    * @param suffix does the filename require a suffix or not (default = nullptr).
+   * @param filename required file name.
    */
-  void DumpCFG(const char* dir_prefix, bool all_blocks, const char* suffix = nullptr);
+  void DumpCFG(const char* dir_prefix, bool all_blocks, const char* suffix = nullptr, const char* filename = nullptr);
 
   bool HasFieldAccess() const {
     return (merged_df_flags_ & (DF_IFIELD | DF_SFIELD)) != 0u;
@@ -1049,9 +1070,10 @@ class MIRGraph {
   int SRegToVReg(int ssa_reg) const;
   void VerifyDataflow();
   void CheckForDominanceFrontier(BasicBlock* dom_bb, const BasicBlock* succ_bb);
-  void EliminateNullChecksAndInferTypesStart();
-  bool EliminateNullChecksAndInferTypes(BasicBlock* bb);
-  void EliminateNullChecksAndInferTypesEnd();
+  bool EliminateNullChecksGate();
+  bool EliminateNullChecks(BasicBlock* bb);
+  void EliminateNullChecksEnd();
+  bool InferTypes(BasicBlock* bb);
   bool EliminateClassInitChecksGate();
   bool EliminateClassInitChecks(BasicBlock* bb);
   void EliminateClassInitChecksEnd();
@@ -1175,6 +1197,7 @@ class MIRGraph {
   void ComputeDefBlockMatrix();
   void ComputeDominators();
   void CompilerInitializeSSAConversion();
+  virtual void InitializeBasicBlockDataFlow();
   void InsertPhiNodes();
   void DoDFSPreOrderSSARename(BasicBlock* block);
 
@@ -1208,6 +1231,91 @@ class MIRGraph {
    */
   bool HasSuspendTestBetween(BasicBlock* source, BasicBlockId target_id);
 
+  /**
+   * @brief Used to record a new GC map for a specific MIR.
+   * @param mir The MIR for which to record the GC map.
+   * @param gc_bit_map The new GC map. The caller must ensure that the provided
+   * ArenaBitVector is not deallocated since this method saved the pointer to
+   * it internally.
+   */
+  virtual void RecordNewMirGCMap(MIR* mir, ArenaBitVector* gc_bit_map);
+
+  /**
+   * @details Since this method wants to provide valid size, it makes sure that
+   * it expands the maps to be size of the biggest entry in current compiler
+   * generated maps and the verifier maps.
+   * @return Returns the size in bytes of GC map entry (one entry for each offset).
+   */
+  virtual size_t GetGCMapEntrySize();
+
+  /**
+   * @brief Used to get the GC map for a specific offset.
+   * @param offset The offset for which to get the GC map.
+   * @param verifier_map_as_backup Whether verifier generated map should be used
+   * for backup.
+   * @return Returns the pointer to the GC map. Size should be checked via
+   * GetGCMapEntrySize.
+   */
+  virtual const uint8_t* GetGCMap(DexOffset offset, bool verifier_map_as_backup);
+
+  /**
+   * @brief Used to get the GC map for a specific offset as a BitVector.
+   * @param offset The offset for which to get the GC map.
+   * @return Returns the BitVector representing the GC map. Return nullptr if
+   * there is no GC map for this offset.
+   */
+  virtual const ArenaBitVector* GetGCMapAsBitVector(DexOffset offset);
+
+  /**
+   * @brief Used to check whether ssa register holds object.
+   * @details This requires that type inference pass has already been run.
+   * @param mir_graph The MIRGraph.
+   * @param ssa_reg The ssa register to check if holds object.
+   * @return Returns true if reference and false otherwise.
+   */
+  virtual bool IsObjectRegister(int32_t ssa_reg) {
+    DCHECK(reg_location_ != nullptr);
+    return reg_location_[ssa_reg].ref != 0;
+  }
+
+  /**
+   * @brief Used to check whether the compiler should regenerate GC maps
+   * (instead of using verifier ones).
+   * @return Returns true if GC maps need recalculated.
+   */
+  virtual bool NeedGcMapRecalculation() const {
+    return recalculate_gc_maps_;
+  }
+
+  /**
+   * @brief Used to control the need for GC map recalculation
+   * @details For example, when moving around object references, we need
+   * to regenerate new maps and thus new_state passed in should be true.
+   * @param new_state Whether or not GC maps need recalculated. It is recommended
+   * that callers of this only call with true and let the GC map calculator
+   * call with false when it actually updated all of the new maps.
+   */
+  virtual void ChangeGCMapRecalculationState(bool new_state) {
+    recalculate_gc_maps_ = new_state;
+  }
+
+  /**
+   * @brief Used to gate optimizations that want to move instructions across safepoints.
+   */
+  virtual bool IsCodeMotionAcrossSafepointAllowed() const;
+
+  /**
+   * @brief Used to check whether an instruction might end up generating a safepoint
+   * (captures suspend points, exceptions, method calls).
+   * @details The implementation uses a series of heuristics to report whether it has safepoint.
+   * For example, it knows that if the instruction has been marked with no exceptions, then it
+   * won't throw at that point. No throw means no safepoint needed.
+   * @param mir The instruction to check.
+   * @return Returns true if the backend may end up generating safepoint. Returns false
+   * when it is guaranteed not to generate one.
+   */
+  virtual bool HasSafepoint(MIR* mir) const;
+
  protected:
   int FindCommonParent(int block1, int block2);
   void ComputeSuccLineIn(ArenaBitVector* dest, const ArenaBitVector* src1,
@@ -1219,7 +1327,6 @@ class MIRGraph {
                       ArenaBitVector* live_in_v,
                       const MIR::DecodedInstruction& d_insn);
   bool DoSSAConversion(BasicBlock* bb);
-  bool InvokeUsesMethodStar(MIR* mir);
   int ParseInsn(const uint16_t* code_ptr, MIR::DecodedInstruction* decoded_instruction);
   bool ContentIsInsn(const uint16_t* code_ptr);
   BasicBlock* SplitBlock(DexOffset code_offset, BasicBlock* orig_block,
@@ -1263,6 +1370,24 @@ class MIRGraph {
   bool ComputeSkipCompilation(struct MethodStats* stats, bool skip_default,
                               std::string* skip_message);
 
+  /**
+   * @brief Internal method used to expand the GC map to support additional slots.
+   * @param new_size_in_bytes The new size in bytes of the map per entry.
+   */
+  void ExpandGcMapEntries(size_t new_size_in_bytes);
+
+  /**
+   * @brief Used to expand the GC map entries to at least the size of verifier maps.
+   */
+  void ExpandGcMapEntriesToAtLeastVerifierSize();
+
+  /**
+   * @brief Used to obtain the GC map as generated per verifier.
+   * @param offset The offset whose map to obtain.
+   * @return Returns the GC map from verifier.
+   */
+  const uint8_t* GetVerifierGCMap(DexOffset offset);
+
   CompilationUnit* const cu_;
   GrowableArray<int>* ssa_base_vregs_;
   GrowableArray<int>* ssa_subscripts_;
@@ -1304,6 +1429,7 @@ class MIRGraph {
   const DexFile::CodeItem* current_code_item_;
   GrowableArray<uint16_t> dex_pc_to_block_map_;  // FindBlock lookup cache.
   ArenaVector<DexCompilationUnit*> m_units_;     // List of methods included in this graph
+  DexOffset compiler_assigned_insn_size_;        // Used to keep track of size after compiler assigns a new non-overlapping offset.
   typedef std::pair<int, int> MIRLocation;       // Insert point, (m_unit_ index, offset)
   ArenaVector<MIRLocation> method_stack_;        // Include stack
   int current_method_;
@@ -1333,10 +1459,44 @@ class MIRGraph {
   static const uint64_t oat_data_flow_attributes_[kMirOpLast];
   GrowableArray<BasicBlock*> gen_suspend_test_list_;  // List of blocks containing suspend tests
 
+  /**
+   * @brief Used to keep track whether GC maps need recalculated.
+   */
+  bool recalculate_gc_maps_;
+
+  /**
+   * @brief Holds offset to GC map.
+   */
+  ArenaSafeMap<DexOffset, ArenaBitVector*> offset_to_gc_map_;
+
+  /**
+   * @brief Keeps track of how many bytes each GC map is.
+   */
+  size_t gc_map_entry_size_;
+
+  /**
+   * @brief Used to provide verifier GC map whose size matches gc_map_entry_size_.
+   * @details New calls to GetGCMap will clobber this so it should be used before
+   * another call.
+   */
+  ArenaBitVector* gc_map_cache_;
+
+  /**
+   * @brief Used to record shorty for invoke targets in unit tests.
+   */
+  const char** shorty_for_test_;
+
+  friend class MirOptimizationTest;
   friend class ClassInitCheckEliminationTest;
   friend class GlobalValueNumberingTest;
   friend class LocalValueNumberingTest;
+
+  // Method inliners must be able to update the MIRGraph so they can add blocks, add try/catch
+  // information, update dex units, and add lowering information.
+  friend class MethodInliner;
+  friend class ControlFlowGraph;
   friend class TopologicalSortOrderTest;
+  friend class ReferenceMapCalculatorTest;
 };
 
 }  // namespace art
