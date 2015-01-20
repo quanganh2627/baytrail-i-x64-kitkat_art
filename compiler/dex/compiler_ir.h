@@ -40,36 +40,35 @@ typedef uint32_t DexOffset;          // Dex offset in code units.
 typedef uint16_t NarrowDexOffset;    // For use in structs, Dex offsets range from 0 .. 0xffff.
 typedef uint32_t CodeOffset;         // Native code offset in bytes.
 
+constexpr size_t kOptionStringMaxLength = 2048;
+
 /**
  * Structure abstracting pass option values, which can be of type string or integer.
  */
 struct OptionContent {
   OptionContent(const OptionContent& option) :
-    type(option.type), container() {
-    if (type == STRING) {
-      container.s = option.container.s;
-    } else {
-      container.i = option.container.i;
-    }
-  }
+    type(option.type), container(option.container, option.type) {}
 
   explicit OptionContent(const char* value) :
-    type(STRING), container(std::string(value)) {}
-
-  explicit OptionContent(const std::string& value) :
-    type(STRING), container(value) {}
+    type(kString), container(value) {}
 
   explicit OptionContent(int value) :
-    type(INTEGER), container(value) {}
+    type(kInteger), container(value) {}
 
   explicit OptionContent(int64_t value) :
-    type(INTEGER), container(value) {}
+    type(kInteger), container(value) {}
+
+  ~OptionContent() {
+    if (type == kString) {
+      container.StringDelete();
+    }
+  }
 
   /**
    * Allows for a transparent display of the option content.
    */
   friend std::ostream& operator<<(std::ostream& out, const OptionContent& option) {
-    if (option.type == STRING) {
+    if (option.type == kString) {
       out << option.container.s;
     } else {
       out << option.container.i;
@@ -78,29 +77,91 @@ struct OptionContent {
     return out;
   }
 
+  inline const char* GetString() const {
+    return container.s;
+  }
+
+  inline int64_t GetInteger() const {
+    return container.i;
+  }
+
+  /**
+   * @brief Used to compare a string option value to a given @p value.
+   * @details Will return whether the internal string option is equal to
+   * the parameter @p value. It will return false if the type of the
+   * object is not a string.
+   * @param value The string to compare to.
+   * @return Returns whether the internal string option is equal to the
+   * parameter @p value.
+  */
+  inline bool Equals(const char* value) const {
+    DCHECK(value != nullptr);
+    if (type != kString) {
+      return false;
+    }
+    return !strncmp(container.s, value, kOptionStringMaxLength);
+  }
+
+  /**
+   * @brief Used to compare an integer option value to a given @p value.
+   * @details Will return whether the internal integer option is equal to
+   * the parameter @p value. It will return false if the type of the
+   * object is not an integer.
+   * @param value The integer to compare to.
+   * @return Returns whether the internal integer option is equal to the
+   * parameter @p value.
+  */
+  inline bool Equals(int64_t value) const {
+    if (type != kInteger) {
+      return false;
+    }
+    return container.i == value;
+  }
+
   /**
    * Describes the type of parameters allowed as option values.
    */
   enum OptionType {
-    STRING = 0,
-    INTEGER
+    kString = 0,
+    kInteger
   };
 
   OptionType type;
 
+ private:
   /**
    * Union containing the option value of either type.
    */
   union OptionContainer {
-    explicit OptionContainer() {}
-    explicit OptionContainer(const std::string& value) : s(value) {}
-    explicit OptionContainer(const int64_t& value) : i(value) {}
-    ~OptionContainer() {}
-    std::string s;
-    int64_t i;
-  } container;
-};
+    explicit OptionContainer(const OptionContainer& c, OptionType t) {
+      if (t == kString) {
+        DCHECK(c.s != nullptr);
+        s = strndup(c.s, kOptionStringMaxLength);
+      } else {
+        i = c.i;
+      }
+    }
 
+    explicit OptionContainer(const char* value) {
+      DCHECK(value != nullptr);
+      s = strndup(value, kOptionStringMaxLength);
+    }
+
+    explicit OptionContainer(int64_t value) : i(value) {}
+    ~OptionContainer() {}
+
+    void StringDelete() {
+      if (s != nullptr) {
+        free(s);
+      }
+    }
+
+    char* s;
+    int64_t i;
+  };
+
+  OptionContainer container;
+};
 
 struct CompilationUnit {
   explicit CompilationUnit(ArenaPool* pool);

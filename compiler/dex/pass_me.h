@@ -100,8 +100,8 @@ class PassME: public Pass {
    * @details The printing is done using LOG(INFO).
    */
   void PrintPassDefaultOptions() const {
-    for (auto option_it = default_options_.begin(); option_it != default_options_.end(); option_it++) {
-      LOG(INFO) << "\t" << option_it->first << ":" << option_it->second;
+    for (const auto& option : default_options_) {
+      LOG(INFO) << "\t" << option.first << ":" << option.second;
     }
   }
 
@@ -110,10 +110,11 @@ class PassME: public Pass {
    * @param overridden_options The overridden settings for this pass.
    */
   void PrintPassOptions(SafeMap<const std::string, const OptionContent>& overridden_options) const {
-    // We walk through the default options only to get the pass names. We use GetPassOption
-    // to also consider the overridden ones.
-    for (auto option_it = default_options_.begin(); option_it != default_options_.end(); option_it++) {
-      LOG(INFO) << "\t" << option_it->first << ":" << GetPassOption(option_it->first, overridden_options);
+    // We walk through the default options only to get the pass names. We use GetPassOption to
+    // also consider the overridden ones.
+    for (const auto& option : default_options_) {
+      LOG(INFO) << "\t" << option.first << ":"
+                << GetPassOption(option.first, overridden_options);
     }
   }
 
@@ -131,19 +132,19 @@ class PassME: public Pass {
   /**
    * @brief Used to obtain the option for a pass as a string.
    * @details Will return the overridden option if it exists or default one otherwise.
-   * It will fail and exit the program if the required option is not a string.
+   * It will return nullptr if the required option value is not a string.
    * @param option_name The name of option whose setting to look for.
    * @param c_unit The compilation unit currently being handled.
    * @return Returns the overridden option if it exists or the default one otherwise.
   */
-  const std::string& GetStringPassOption(const char* option_name, CompilationUnit* c_unit) const {
+  const char* GetStringPassOption(const char* option_name, CompilationUnit* c_unit) const {
     return GetStringPassOption(option_name, c_unit->overridden_pass_options);
   }
 
   /**
     * @brief Used to obtain the pass option value as an integer.
     * @details Will return the overridden option if it exists or default one otherwise.
-    * It will fail and exit the program if the required option is not an integer.
+    * It will return 0 if the required option value is not an integer.
     * @param c_unit The compilation unit currently being handled.
     * @return Returns the overriden option if it exists or the default one otherwise.
    */
@@ -161,7 +162,7 @@ class PassME: public Pass {
 
  protected:
   const OptionContent& GetPassOption(const char* option_name,
-                                     const SafeMap<const std::string, const OptionContent>& overridden_options) const {
+        const SafeMap<const std::string, const OptionContent>& overridden_options) const {
     DCHECK(option_name != nullptr);
 
     // First check if there are any overridden settings.
@@ -180,26 +181,31 @@ class PassME: public Pass {
     }
   }
 
-  const std::string& GetStringPassOption(const char* option_name,
-                           const SafeMap<const std::string, const OptionContent>& overridden_options) const {
+  const char* GetStringPassOption(const char* option_name,
+        const SafeMap<const std::string, const OptionContent>& overridden_options) const {
     const OptionContent& option_content = GetPassOption(option_name, overridden_options);
-    CHECK(option_content.type == OptionContent::STRING);
+    if (option_content.type != OptionContent::kString) {
+      return nullptr;
+    }
 
-    return option_content.container.s;
+    return option_content.GetString();
   }
 
   int64_t GetIntegerPassOption(const char* option_name,
-                            const SafeMap<const std::string, const OptionContent>& overridden_options) const {
+          const SafeMap<const std::string, const OptionContent>& overridden_options) const {
     const OptionContent& option_content = GetPassOption(option_name, overridden_options);
-    CHECK(option_content.type == OptionContent::INTEGER);
+    if (option_content.type != OptionContent::kInteger) {
+      return 0;
+    }
 
-    return option_content.container.i;
+    return option_content.GetInteger();
   }
 
   /** @brief Type of traversal: determines the order to execute the pass on the BasicBlocks. */
   const DataFlowAnalysisMode traversal_type_;
 
-  /** @brief Flags for additional directives: used to determine if a particular post-optimization pass is necessary. */
+  /** @brief Flags for additional directives: used to determine if a particular
+    * post-optimization pass is necessary. */
   const unsigned int flags_;
 
   /** @brief CFG Dump Folder: what sub-folder to use for dumping the CFGs post pass. */
