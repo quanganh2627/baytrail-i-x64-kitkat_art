@@ -277,24 +277,26 @@ class PassDriverME: public PassDriver<PassDriverType> {
           continue;
       }
 
-      // Get the actual setting itself. Strtol is being used to convert because it is
-      // exception safe. If the input is not sane, it will set a setting of 0.
-      std::string setting_string = settings.substr(setting_pos, next_configuration_separator - setting_pos);
+      // Get the actual setting itself.
+      std::string setting_string =
+          settings.substr(setting_pos, next_configuration_separator - setting_pos);
 
       std::string setting_name = settings.substr(setting_name_pos, setting_pos - setting_name_pos - 1);
 
-      // We attempt to convert the option value to integer.
+      // We attempt to convert the option value to integer. Strtoll is being used to
+      // convert because it is exception safe.
       char* end_ptr = nullptr;
       const char* setting_ptr = setting_string.c_str();
       DCHECK(setting_ptr != nullptr);  // Paranoid: setting_ptr must be a valid pointer.
-      int64_t int_value = strtoll(setting_ptr, &end_ptr, 10);
+      int64_t int_value = strtoll(setting_ptr, &end_ptr, 0);
       DCHECK(end_ptr != nullptr);  // Paranoid: end_ptr must be set by the strtoll call.
 
       // If strtoll call succeeded, the option is now considered as integer.
       if (*setting_ptr != '\0' && end_ptr != setting_ptr && *end_ptr == '\0') {
         settings_to_fill.Put(setting_name, OptionContent(int_value));
       } else {
-        settings_to_fill.Put(setting_name, OptionContent(setting_string));
+        // Otherwise, it is considered as a string.
+        settings_to_fill.Put(setting_name, OptionContent(setting_string.c_str()));
       }
       search_pos = next_configuration_separator;
     } while (true);
