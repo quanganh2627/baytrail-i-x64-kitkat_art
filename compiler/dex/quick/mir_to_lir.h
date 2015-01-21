@@ -843,7 +843,7 @@ class Mir2Lir : public Backend {
                         RegLocation rl_src);
 
     void GenConstClass(uint32_t type_idx, RegLocation rl_dest);
-    void GenConstString(uint32_t string_idx, RegLocation rl_dest);
+    virtual void GenConstString(uint32_t string_idx, RegLocation rl_dest);
     void GenNewInstance(uint32_t type_idx, RegLocation rl_dest);
     void GenThrow(RegLocation rl_src);
     void GenInstanceof(uint32_t type_idx, RegLocation rl_dest, RegLocation rl_src);

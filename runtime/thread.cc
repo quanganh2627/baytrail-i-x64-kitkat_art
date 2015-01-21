@@ -2153,7 +2153,7 @@ class ReferenceMapVisitor : public StackVisitor {
         const uint8_t* reg_bitmap = map.FindBitMap(native_pc_offset);
         DCHECK(reg_bitmap != nullptr);
         const void* code_pointer = mirror::ArtMethod::EntryPointToCodePointer(entry_point);
-        const VmapTable vmap_table(m->GetVmapTable(code_pointer, sizeof(void*)));
+        const VmapTable vmap_table(m->GetVmapTable(code_pointer, sizeof(void*)), this);
         QuickMethodFrameInfo frame_info = m->GetQuickFrameInfo(code_pointer);
         // For all dex registers in the bitmap
         StackReference<mirror::ArtMethod>* cur_quick_frame = GetCurrentQuickFrame();
