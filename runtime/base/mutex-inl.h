@@ -40,7 +40,11 @@ namespace art {
 #define SYS_futex __NR_futex
 #endif
 static inline int futex(volatile int *uaddr, int op, int val, const struct timespec *timeout, volatile int *uaddr2, int val3) {
+#if defined(__BIONIC__)
+  return syscall_futex6(SYS_futex, uaddr, op, val, timeout, uaddr2, val3);
+#else
   return syscall(SYS_futex, uaddr, op, val, timeout, uaddr2, val3);
+#endif
 }
 #endif  // ART_USE_FUTEXES
 
