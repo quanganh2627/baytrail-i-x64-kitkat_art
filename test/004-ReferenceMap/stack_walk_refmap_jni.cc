@@ -79,9 +79,13 @@ struct ReferenceMap2Visitor : public StackVisitor {
       CHECK(ref_bitmap);
       CHECK_REGS_CONTAIN_REFS(8, 1);  // v8: this, v1: x
 
+#if SMART_GC_MAPS
+      // Inlining removed this offset.
+#else
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x08U)));
       CHECK(ref_bitmap);
       CHECK_REGS_CONTAIN_REFS(8, 3, 1);  // v8: this, v3: y, v1: x
+#endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x0cU)));
       CHECK(ref_bitmap);
@@ -124,12 +128,11 @@ struct ReferenceMap2Visitor : public StackVisitor {
       CHECK_REGS_CONTAIN_REFS(8, 2, 1, 0);  // v8: this, v2: y, v1: x, v0: ex
 #endif
 
+#if SMART_GC_MAPS
+      // Inlining removed this offset.
+#else
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x1aU)));
       CHECK(ref_bitmap);
-#if SMART_GC_MAPS
-      // V0 is dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8, 5, 2, 1);  // v8: this, v5: x[1], v2: y, v1: x
-#else
       CHECK_REGS_CONTAIN_REFS(8, 5, 2, 1, 0);  // v8: this, v5: x[1], v2: y, v1: x, v0: ex
 #endif
 
@@ -188,24 +191,16 @@ struct ReferenceMap2Visitor : public StackVisitor {
       CHECK_REGS_CONTAIN_REFS(8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
 #endif
 
+#if SMART_GC_MAPS
+      // TestsSuspendRemoval removed this.
+#else
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x2fU)));
       CHECK(ref_bitmap);
-#ifndef SMART_GC_MAPS  // Not really. It is TestsSuspendRemoval.
-#if SMART_GC_MAPS
-      // All but V1/V8 are dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8, 1);  // v8: this, v1: x
-#else
       CHECK_REGS_CONTAIN_REFS(8, 4, 3, 2, 1);  // v8: this, v4: ex, v3: y, v2: y, v1: x
-#endif
 
       ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x32U)));
       CHECK(ref_bitmap);
-#if SMART_GC_MAPS
-      // All but V1/V8 are dead according to LSRA here.
-      CHECK_REGS_CONTAIN_REFS(8, 1);  // v8: this, v1: x
-#else
       CHECK_REGS_CONTAIN_REFS(8, 3, 2, 1, 0);  // v8: this, v3: y, v2: y, v1: x, v0: ex
-#endif
 #endif
     }
 
