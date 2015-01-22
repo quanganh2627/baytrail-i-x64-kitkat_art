@@ -119,35 +119,8 @@ size_t GetStackOverflowReservedBytes(InstructionSet isa) {
 
 std::string InstructionSetFeatures::GetFeatureString() const {
   std::string result;
-  if (HasDivideInstruction()) {
+  if ((mask_ & kHwDiv) != 0) {
     result += "div";
-  }
-  if (HasLpae()) {
-    result += "lpae";
-  }
-  if (HasSSSE3()) {
-    result += "ssse3";
-  }
-  if (HasSSE4_1()) {
-     result += "sse4_1";
-  }
-  if (HasSSE4_2()) {
-     result += "sse4_2";
-  }
-  if (HasAVX()) {
-     result += "avx";
-  }
-  if (HasAVX2()) {
-     result += "avx2";
-  }
-  if (HasAES_IN()) {
-     result += "aes_in";
-  }
-  if (HasPOPCNT()) {
-     result += "popcnt";
-  }
-  if (HasMOVBE()) {
-     result += "movbe";
   }
   if (result.size() == 0) {
     result = "none";
