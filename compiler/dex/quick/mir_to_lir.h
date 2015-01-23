@@ -802,7 +802,7 @@ class Mir2Lir : public Backend {
     void AddIntrinsicSlowPath(CallInfo* info, LIR* branch, LIR* resume = nullptr);
     virtual bool HandleEasyDivRem(Instruction::Code dalvik_opcode, bool is_div,
                                   RegLocation rl_src, RegLocation rl_dest, int lit);
-    bool HandleEasyMultiply(RegLocation rl_src, RegLocation rl_dest, int lit);
+    virtual bool HandleEasyMultiply(RegLocation rl_src, RegLocation rl_dest, int lit);
     virtual void HandleSlowPaths();
     void GenBarrier();
     void GenDivZeroException();
@@ -945,7 +945,7 @@ class Mir2Lir : public Backend {
     virtual bool GenInlinedCharAt(CallInfo* info);
     bool GenInlinedStringIsEmptyOrLength(CallInfo* info, bool is_empty);
     virtual bool GenInlinedReverseBits(CallInfo* info, OpSize size);
-    bool GenInlinedReverseBytes(CallInfo* info, OpSize size);
+    virtual bool GenInlinedReverseBytes(CallInfo* info, OpSize size);
     bool GenInlinedAbsInt(CallInfo* info);
     virtual bool GenInlinedAbsLong(CallInfo* info);
     virtual bool GenInlinedAbsFloat(CallInfo* info) = 0;
@@ -1488,6 +1488,15 @@ class Mir2Lir : public Backend {
      * @returns 'true' if only 1 bit is set in the value.
      */
     bool IsPowerOfTwo(uint64_t x);
+    /*
+     * @brief Is this value with no more than two bits set?
+     * @param x Value to be examined.
+     * @returns Returns true if no more than two bits are set in 'x'.
+     */
+    bool IsPopCountLE2(unsigned int x) {
+      x &= x - 1;
+      return (x & (x - 1)) == 0;
+    }
     /*
      * @brief Do these SRs overlap?
      * @param rl_op1 One RegLocation

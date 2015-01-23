@@ -1677,12 +1677,6 @@ void Mir2Lir::GenArithOpInt(Instruction::Code opcode, RegLocation rl_dest,
  * or produce corresponding Thumb instructions directly.
  */
 
-// Returns true if no more than two bits are set in 'x'.
-static bool IsPopCountLE2(unsigned int x) {
-  x &= x - 1;
-  return (x & (x - 1)) == 0;
-}
-
 // Returns true if it added instructions to 'cu' to divide 'rl_src' by 'lit'
 // and store the result in 'rl_dest'.
 bool Mir2Lir::HandleEasyDivRem(Instruction::Code dalvik_opcode, bool is_div,
