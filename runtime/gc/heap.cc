@@ -1002,7 +1002,11 @@ class TrimIndirectReferenceTableClosure : public Closure {
     ATRACE_BEGIN("Trimming reference table");
     thread->GetJniEnv()->locals.Trim();
     ATRACE_END();
-    barrier_->Pass(Thread::Current());
+    // If thread is a running mutator, then act on behalf of the trim thread.
+    // See the code in ThreadList::RunCheckpoint.
+    if (thread->GetState() == kRunnable) {
+      barrier_->Pass(Thread::Current());
+    }
   }
 
  private:
