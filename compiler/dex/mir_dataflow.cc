@@ -1372,20 +1372,6 @@ void MIRGraph::CompilerInitializeSSAConversion() {
   /*
    * Allocate the BasicBlockDataFlow structure for the entry and code blocks
    */
-  GrowableArray<BasicBlock*>::Iterator iterator(&block_list_);
-
-  while (true) {
-    BasicBlock* bb = iterator.Next();
-    if (bb == NULL) break;
-    if (bb->hidden == true) continue;
-    if (bb->block_type == kDalvikByteCode ||
-      bb->block_type == kEntryBlock ||
-      bb->block_type == kExitBlock) {
-      bb->data_flow_info =
-          static_cast<BasicBlockDataFlow*>(arena_->Alloc(sizeof(BasicBlockDataFlow),
-                                                         kArenaAllocDFInfo));
-      }
-  }
   InitializeBasicBlockDataFlow();
 }
 
