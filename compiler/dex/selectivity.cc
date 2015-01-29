@@ -41,6 +41,8 @@ CompilerOptions::CompilerFilter original_compiler_filter = CompilerOptions::kO2;
 
 CompilerOptions::CompilerFilter used_compiler_filter = CompilerOptions::kO2;
 
+static uint32_t per_app_dex_limit_ = SELECTIVITY_DEFAULT_PER_APP_DEX_LIMIT;
+
 void SetPreCompileSummaryLogic(bool (*function)(CompilerDriver* driver,
                                                              VerificationResults* verification_results)) {
   if (function != nullptr) {
@@ -157,6 +159,14 @@ CompilerOptions::CompilerFilter GetUsedCompilerFilter() {
 
 void SetUsedCompilerFilter(CompilerOptions::CompilerFilter filter) {
   used_compiler_filter = filter;
+}
+
+void SetPerAppDexLimit(uint32_t dex_limit) {
+  per_app_dex_limit_ = dex_limit;
+}
+
+uint32_t GetPerAppDexLimit() {
+  return per_app_dex_limit_;
 }
 }  // namespace Selectivity
 }  // namespace art

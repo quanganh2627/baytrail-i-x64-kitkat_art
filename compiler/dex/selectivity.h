@@ -146,6 +146,13 @@ namespace Selectivity {
   CompilerOptions::CompilerFilter GetUsedCompilerFilter();
 
   void SetUsedCompilerFilter(CompilerOptions::CompilerFilter filter);
+
+  /*
+   * @brief Getter and Setter for the dex opcode limit for the application.
+   */
+  #define SELECTIVITY_DEFAULT_PER_APP_DEX_LIMIT 600000
+  void SetPerAppDexLimit(uint32_t dex_limit);
+  uint32_t GetPerAppDexLimit();
 }  // namespace Selectivity
 }  // namespace art
 #endif  // ART_COMPILER_DEX_SELECTIVITY_H_
