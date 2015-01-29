@@ -241,6 +241,14 @@ static void Usage(const char* fmt, ...) {
   UsageError("      Used to specify a pass specific option. The setting itself must be integer.");
   UsageError("      Separator used between options is a comma.");
   UsageError("");
+  UsageError("  --sel-options=<mode>:<dex-opcode-limit>");
+  UsageError("      Modes:");
+  UsageError("            off - turn off selectivity.");
+  UsageError("            app - turn on app-level selectivity.");
+  UsageError("         Default: app");
+  UsageError("      Dex-Opcode-Limit: (Optional)");
+  UsageError("         Default: %d", SELECTIVITY_DEFAULT_PER_APP_DEX_LIMIT);
+  UsageError("");
   std::cerr << "See log for usage error information\n";
   exit(EXIT_FAILURE);
 }
@@ -899,7 +907,8 @@ static int dex2oat(int argc, char** argv) {
   bool dump_slow_timing = kIsDebugBuild;
   bool watch_dog_enabled = true;
   bool generate_gdb_information = kIsDebugBuild;
-  bool use_selectivity_analysis = false;
+  bool use_selectivity_analysis = true;
+  uint32_t app_dex_opcode_limit = SELECTIVITY_DEFAULT_PER_APP_DEX_LIMIT;
 
   // Checks are all explicit until we know the architecture.
   bool implicit_null_checks = false;
@@ -944,6 +953,35 @@ static int dex2oat(int argc, char** argv) {
       oat_filename = option.substr(strlen("--oat-file=")).data();
     } else if (option.starts_with("--oat-symbols=")) {
       oat_symbols = option.substr(strlen("--oat-symbols=")).data();
+    } else if (option.starts_with("--sel-options=")) {
+      std::vector<std::string> parsed;
+      Split(option.substr(strlen("--sel-options=")).data(), ':', parsed);
+      bool finished_parsing_sel_options = false;
+      for (uint32_t i = 0; i < parsed.size() && !finished_parsing_sel_options; ++i) {
+        switch (i) {
+          case 0: {
+                    if (parsed[i] == "off") {
+                      use_selectivity_analysis = false;
+                      finished_parsing_sel_options = true;
+                    } else if (parsed[i] == "app") {
+                      use_selectivity_analysis = true;
+                    } else {
+                      Usage("illegal argument for --sel-options index %d value %s", i , parsed[i].c_str());
+                    }
+                    break;
+                  }
+          case 1: {
+                    const char* app_dex_limit_str = parsed[i].c_str();
+                    if (!ParseInt(app_dex_limit_str, &app_dex_opcode_limit)) {
+                      Usage("Failed to parse app dex limit argument '%s' as an integer", parsed[i].c_str());
+                    }
+                    break;
+                  }
+          default:
+                  Usage("Too many arguments for --sel-options index %d value %s", i , parsed[i].c_str());
+                  break;
+        }
+      }
     } else if (option.starts_with("--oat-fd=")) {
       const char* oat_fd_str = option.substr(strlen("--oat-fd=")).data();
       if (!ParseInt(oat_fd_str, &oat_fd)) {
@@ -1245,6 +1283,8 @@ static int dex2oat(int argc, char** argv) {
 
   // Store the compiler_filter for the selectivity system.
   Selectivity::SetOriginalCompilerFilter(compiler_filter);
+  // Set the dex opcode limit.
+  Selectivity::SetPerAppDexLimit(app_dex_opcode_limit);
 
   // Enable plugins if using compiler filter level O1 or greater.
   if (compiler_filter >= CompilerOptions::kO1) {
@@ -1346,7 +1386,9 @@ static int dex2oat(int argc, char** argv) {
 
   std::unique_ptr<VerificationResults> verification_results(new VerificationResults(
                                                             compiler_options.get()));
-  Selectivity::ToggleAnalysis(use_selectivity_analysis, disable_passes);
+  if (!image) {
+    Selectivity::ToggleAnalysis(use_selectivity_analysis, disable_passes);
+  }
   DexFileToMethodInlinerMap method_inliner_map;
   QuickCompilerCallbacks callbacks(verification_results.get(), &method_inliner_map);
   runtime_options.push_back(std::make_pair("compilercallbacks", &callbacks));
