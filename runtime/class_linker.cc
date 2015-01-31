@@ -2323,6 +2323,8 @@ uint32_t ClassLinker::SizeOfClassWithoutEmbeddedTables(const DexFile& dex_file,
                                                        const DexFile::ClassDef& dex_class_def) {
   const byte* class_data = dex_file.GetClassData(dex_class_def);
   size_t num_ref = 0;
+  size_t num_8 = 0;
+  size_t num_16 = 0;
   size_t num_32 = 0;
   size_t num_64 = 0;
   if (class_data != nullptr) {
@@ -2330,16 +2332,33 @@ uint32_t ClassLinker::SizeOfClassWithoutEmbeddedTables(const DexFile& dex_file,
       const DexFile::FieldId& field_id = dex_file.GetFieldId(it.GetMemberIndex());
       const char* descriptor = dex_file.GetFieldTypeDescriptor(field_id);
       char c = descriptor[0];
-      if (c == 'L' || c == '[') {
-        num_ref++;
-      } else if (c == 'J' || c == 'D') {
-        num_64++;
-      } else {
-        num_32++;
+      switch (c) {
+        case 'L':
+        case '[':
+          num_ref++;
+          break;
+        case 'J':
+        case 'D':
+          num_64++;
+          break;
+        case 'I':
+        case 'F':
+          num_32++;
+          break;
+        case 'S':
+        case 'C':
+          num_16++;
+          break;
+        case 'B':
+        case 'Z':
+          num_8++;
+          break;
+        default:
+          LOG(FATAL) << "Unknown descriptor: " << c;
       }
     }
   }
-  return mirror::Class::ComputeClassSize(false, 0, num_32, num_64, num_ref);
+  return mirror::Class::ComputeClassSize(false, 0, num_8, num_16, num_32, num_64, num_ref);
 }
 
 bool ClassLinker::FindOatClass(const DexFile& dex_file,
@@ -2722,6 +2741,87 @@ void ClassLinker::LinkCode(Handle<mirror::ArtMethod> method, const OatFile::OatC
                                                    nullptr,
 #endif
                                                    have_portable_code);
+}
+
+template<int n>
+void ClassLinker::AlignFields(size_t& current_field, const size_t num_fields,
+                              MemberOffset& field_offset,
+                              mirror::ObjectArray<mirror::ArtField>* fields,
+                              std::deque<mirror::ArtField*>& grouped_and_sorted_fields) {
+  if (current_field != num_fields && !IsAligned<n>(field_offset.Uint32Value())) {
+    size_t gap = (n - (field_offset.Uint32Value() & (n - 1)));
+    // Avoid padding unless a field that requires alignment actually exists.
+    bool needs_padding = false;
+    for (size_t i = 0; i < grouped_and_sorted_fields.size(); ++i) {
+      mirror::ArtField* field = grouped_and_sorted_fields[i];
+      Primitive::Type type = field->GetTypeAsPrimitiveType();
+      CHECK(type != Primitive::kPrimNot) << PrettyField(field);  // should be primitive types
+      // Too big to fill the gap.
+      if (Primitive::ComponentSize(type) >= n) {
+        needs_padding = true;
+        continue;
+      }
+      if (needs_padding) {
+        // Shift as many fields as possible to fill the gaps.
+        size_t cursor = i;
+        mirror::ArtField* shift_field;
+        Primitive::Type shift_type;
+        while (cursor < grouped_and_sorted_fields.size() && gap > 0) {
+          // Find field that can current in current gap.
+          do {
+            DCHECK_LT(cursor, grouped_and_sorted_fields.size()) << "Cursor overran fields.";
+            shift_field = grouped_and_sorted_fields[cursor];
+            shift_type = shift_field->GetTypeAsPrimitiveType();
+            CHECK(shift_type != Primitive::kPrimNot) << PrettyField(shift_field);
+            // Can fit.
+            if (Primitive::ComponentSize(shift_type) <= gap) {
+              break;
+            }
+            ++cursor;
+          } while (cursor < grouped_and_sorted_fields.size());
+
+          if (cursor < grouped_and_sorted_fields.size()) {
+            shift_field->SetOffset(field_offset);
+            field_offset = MemberOffset(field_offset.Uint32Value() +
+                Primitive::ComponentSize(shift_type));
+            gap -= Primitive::ComponentSize(shift_type);
+            grouped_and_sorted_fields.erase(grouped_and_sorted_fields.begin() + cursor);
+          }
+        }
+      }
+      break;
+    }
+    // No further shuffling available, pad whatever space is left.
+    if (needs_padding) {
+      field_offset = MemberOffset(field_offset.Uint32Value() + gap);
+    }
+    DCHECK(!needs_padding || IsAligned<n>(field_offset.Uint32Value())) << "Needed " <<
+      n << " byte alignment, but not aligned after align with offset: " <<
+      field_offset.Uint32Value();
+  }
+}
+
+template<int n>
+void ClassLinker::ShuffleForward(size_t &current_field, const size_t num_fields,
+                                 MemberOffset& field_offset,
+                                 mirror::ObjectArray<mirror::ArtField>* fields,
+                                 std::deque<mirror::ArtField*>& grouped_and_sorted_fields) {
+  while (!grouped_and_sorted_fields.empty() && current_field != num_fields) {
+    mirror::ArtField* field = grouped_and_sorted_fields.front();
+    Primitive::Type type = field->GetTypeAsPrimitiveType();
+    CHECK(type != Primitive::kPrimNot) << PrettyField(field);  // should be primitive types
+    if (Primitive::ComponentSize(type) != n) {
+      DCHECK_LT(Primitive::ComponentSize(type), static_cast<unsigned int>(n)) <<
+          "Encountered a larger field (" << Primitive::ComponentSize(type) << ") " <<
+          "while shuffling fields of size: " << n;
+      // We should've shuffled all field of size n forward by this point.
+      break;
+    }
+    DCHECK(IsAligned<n>(field_offset.Uint32Value()));
+    grouped_and_sorted_fields.pop_front();
+    field->SetOffset(field_offset);
+    field_offset = MemberOffset(field_offset.Uint32Value() + n);
+  }
 }
 
 void ClassLinker::LoadClass(const DexFile& dex_file,
@@ -5361,7 +5461,7 @@ struct LinkFieldsComparator {
   // No thread safety analysis as will be called from STL. Checked lock held in constructor.
   bool operator()(mirror::ArtField* field1, mirror::ArtField* field2)
       NO_THREAD_SAFETY_ANALYSIS {
-    // First come reference fields, then 64-bit, and finally 32-bit
+    // First come reference fields, then 64-bit, then 32-bit, and then 16-bit, then finally 8-bit.
     Primitive::Type type1 = field1->GetTypeAsPrimitiveType();
     Primitive::Type type2 = field2->GetTypeAsPrimitiveType();
     if (type1 != type2) {
@@ -5414,6 +5514,8 @@ bool ClassLinker::LinkFields(Handle<mirror::Class> klass, bool is_static, size_t
   // we want a relatively stable order so that adding new fields
   // minimizes disruption of C++ version such as Class and Method.
   std::deque<mirror::ArtField*> grouped_and_sorted_fields;
+  const char* old_no_suspend_cause  = Thread::Current()->StartAssertNoThreadSuspension(
+      "Naked ArtField references in deque");
   for (size_t i = 0; i < num_fields; i++) {
     mirror::ArtField* f = fields->Get(i);
     CHECK(f != nullptr) << PrettyClass(klass.Get());
@@ -5422,7 +5524,7 @@ bool ClassLinker::LinkFields(Handle<mirror::Class> klass, bool is_static, size_t
   std::sort(grouped_and_sorted_fields.begin(), grouped_and_sorted_fields.end(),
             LinkFieldsComparator());
 
-  // References should be at the front.
+  // References should be at the front, unless we need to pad.
   size_t current_field = 0;
   size_t num_reference_fields = 0;
   for (; current_field < num_fields; current_field++) {
@@ -5439,44 +5541,21 @@ bool ClassLinker::LinkFields(Handle<mirror::Class> klass, bool is_static, size_t
                                 sizeof(mirror::HeapReference<mirror::Object>));
   }
 
-  // Now we want to pack all of the double-wide fields together.  If
-  // we're not aligned, though, we want to shuffle one 32-bit field
-  // into place.  If we can't find one, we'll have to pad it.
-  if (current_field != num_fields && !IsAligned<8>(field_offset.Uint32Value())) {
-    for (size_t i = 0; i < grouped_and_sorted_fields.size(); i++) {
-      mirror::ArtField* field = grouped_and_sorted_fields[i];
-      Primitive::Type type = field->GetTypeAsPrimitiveType();
-      CHECK(type != Primitive::kPrimNot) << PrettyField(field);  // should be primitive types
-      if (type == Primitive::kPrimLong || type == Primitive::kPrimDouble) {
-        continue;
-      }
-      current_field++;
-      field->SetOffset(field_offset);
-      // drop the consumed field
-      grouped_and_sorted_fields.erase(grouped_and_sorted_fields.begin() + i);
-      break;
-    }
-    // whether we found a 32-bit field for padding or not, we advance
-    field_offset = MemberOffset(field_offset.Uint32Value() +
-                                sizeof(mirror::HeapReference<mirror::Object>));
-  }
+  AlignFields<8>(current_field, num_fields, field_offset, fields, grouped_and_sorted_fields);
+  ShuffleForward<8>(current_field, num_fields, field_offset, fields, grouped_and_sorted_fields);
+  // No need for further alignment, start of object is 4-byte aligned.
+  ShuffleForward<4>(current_field, num_fields, field_offset, fields, grouped_and_sorted_fields);
+  ShuffleForward<2>(current_field, num_fields, field_offset, fields, grouped_and_sorted_fields);
+  ShuffleForward<1>(current_field, num_fields, field_offset, fields, grouped_and_sorted_fields);
+  CHECK(grouped_and_sorted_fields.empty()) << "Missed " << grouped_and_sorted_fields.size() <<
+      " fields.";
 
-  // Alignment is good, shuffle any double-wide fields forward, and
-  // finish assigning field offsets to all fields.
-  DCHECK(current_field == num_fields || IsAligned<8>(field_offset.Uint32Value()))
-      << PrettyClass(klass.Get());
-  while (!grouped_and_sorted_fields.empty()) {
-    mirror::ArtField* field = grouped_and_sorted_fields.front();
-    grouped_and_sorted_fields.pop_front();
-    Primitive::Type type = field->GetTypeAsPrimitiveType();
-    CHECK(type != Primitive::kPrimNot) << PrettyField(field);  // should be primitive types
-    field->SetOffset(field_offset);
-    field_offset = MemberOffset(field_offset.Uint32Value() +
-                                ((type == Primitive::kPrimLong || type == Primitive::kPrimDouble)
-                                 ? sizeof(uint64_t)
-                                 : sizeof(uint32_t)));
-    current_field++;
+  // Subclass expects superclass to be 4 byte aligned at end.
+  if (!IsAligned<4>(field_offset.Uint32Value())) {
+    field_offset = MemberOffset(RoundUp(field_offset.Uint32Value(), 4));
   }
+  CHECK(IsAligned<4>(field_offset.Uint32Value()));
+  Thread::Current()->EndAssertNoThreadSuspension(old_no_suspend_cause);
 
   // We lie to the GC about the java.lang.ref.Reference.referent field, so it doesn't scan it.
   if (!is_static && klass->DescriptorEquals("Ljava/lang/ref/Reference;")) {
@@ -5596,7 +5675,7 @@ void ClassLinker::CreateReferenceOffsets(Handle<mirror::Class> klass, bool is_st
         // Can't use klass->GetFirstReferenceStaticFieldOffset() yet.
         : klass->ShouldHaveEmbeddedImtAndVTable()
           ? mirror::Class::ComputeClassSize(
-              true, klass->GetVTableDuringLinking()->GetLength(), 0, 0, 0)
+              true, klass->GetVTableDuringLinking()->GetLength(), 0, 0, 0, 0, 0)
           : sizeof(mirror::Class);
     uint32_t start_bit = start_offset / sizeof(mirror::HeapReference<mirror::Object>);
     if (start_bit + num_reference_fields > 32) {
