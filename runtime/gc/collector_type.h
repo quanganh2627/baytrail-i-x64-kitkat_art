@@ -38,6 +38,8 @@ enum CollectorType {
   kCollectorTypeMC,
   // Heap trimming collector, doesn't do any actual collecting.
   kCollectorTypeHeapTrim,
+  // Transition collector between different kinds of spaces.
+  kCollectorTypeTransition,
   // A (mostly) concurrent copying collector.
   kCollectorTypeCC,
   // A homogeneous space compaction collector used in background transition

@@ -1707,8 +1707,7 @@ void Heap::TransitionCollector(CollectorType collector_type) {
       }
       // GC can be disabled if someone has a used GetPrimitiveArrayCritical but not yet released.
       if (!copying_transition || disable_moving_gc_count_ == 0) {
-        // TODO: Not hard code in semi-space collector?
-        collector_type_running_ = copying_transition ? kCollectorTypeSS : collector_type;
+        collector_type_running_ = kCollectorTypeTransition;
         break;
       }
     }
@@ -2899,6 +2898,43 @@ collector::GcType Heap::WaitForGcToComplete(GcCause cause, Thread* self) {
   ScopedThreadStateChange tsc(self, kWaitingForGcToComplete);
   MutexLock mu(self, *gc_complete_lock_);
   return WaitForGcToCompleteLocked(cause, self);
+}
+
+collector::GcType Heap::WaitForTransitionToCompleteLocked(GcCause cause, Thread* self) {
+  collector::GcType last_gc_type = collector::kGcTypeNone;
+  uint64_t wait_start = NanoTime();
+  // In most cases, this won't happen, because collector transition and heap trim are
+  // sequentially finished in DoPendingTransitionOrTrim.
+  // The case walking now is that DisableMovingGc calls TransitionCollector due to full
+  // non moving space when trim is happening. This case may cause race condition, since
+  // ros space may be deleted during this space is trimming. Actually it's unnecessary
+  // to trim ros space if this space is transitioned to from another space since it's already
+  // compacted. Thus we make trim and collector transition from DisableMovingGc sequential.
+  while (collector_type_running_ == kCollectorTypeTransition) {
+    ATRACE_BEGIN("Transition Collector: Wait For Completion");
+    // We must wait, change thread state then sleep on gc_complete_cond_;
+    gc_complete_cond_->Wait(self);
+    last_gc_type = last_gc_type_;
+    ATRACE_END();
+  }
+  uint64_t wait_time = NanoTime() - wait_start;
+  total_wait_time_ += wait_time;
+  if (Runtime::Current()->EnabledGcProfile()) {
+    // Record the wait time for the gc, update the gc blocking time necessory
+    // only record when last_gc_type != kGcTypeNone.
+    GcProfiler* gc_profiler = GcProfiler::GetInstance();
+    if (last_gc_type != collector::kGcTypeNone) {
+      gc_profiler->UpdateMaxWaitForGcTimeAndBlockingTime(wait_time);
+    } else {
+      // If no GC heppened, update the wasted wait time.
+      gc_profiler->UpdateWastedWaitTime(wait_time);
+    }
+  }
+  if (wait_time > long_pause_log_threshold_) {
+    LOG(INFO) << "WaitForGcToComplete blocked for " << PrettyDuration(wait_time)
+        << " for cause " << cause;
+  }
+  return last_gc_type;
 }
 
 collector::GcType Heap::WaitForGcToCompleteLocked(GcCause cause, Thread* self) {

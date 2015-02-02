@@ -714,6 +714,9 @@ class Heap {
   collector::GcType WaitForGcToCompleteLocked(GcCause cause, Thread* self)
       EXCLUSIVE_LOCKS_REQUIRED(gc_complete_lock_);
 
+  collector::GcType WaitForTransitionToCompleteLocked(GcCause cause, Thread* self)
+      EXCLUSIVE_LOCKS_REQUIRED(gc_complete_lock_);
+
   void RequestCollectorTransition(CollectorType desired_collector_type, uint64_t delta_time)
       LOCKS_EXCLUDED(pending_task_lock_);
 
