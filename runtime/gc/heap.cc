@@ -2462,7 +2462,7 @@ class VerifyReferenceVisitor {
         // Attempt to see if the card table missed the reference.
         ScanVisitor scan_visitor;
         byte* byte_cover_begin = reinterpret_cast<byte*>(card_table->AddrFromCard(card_addr));
-        card_table->Scan(bitmap, byte_cover_begin,
+        card_table->Scan<false>(bitmap, byte_cover_begin,
                          byte_cover_begin + accounting::CardTable::kCardSize, scan_visitor);
       }
 

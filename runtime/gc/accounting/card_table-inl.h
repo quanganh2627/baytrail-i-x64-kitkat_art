@@ -48,7 +48,7 @@ static inline bool byte_cas(byte old_value, byte new_value, byte* address) {
 #endif
 }
 
-template <typename Visitor>
+template <bool kClearCard, typename Visitor>
 inline size_t CardTable::Scan(ContinuousSpaceBitmap* bitmap, byte* scan_begin, byte* scan_end,
                               const Visitor& visitor, const byte minimum_age) const {
   DCHECK_GE(scan_begin, reinterpret_cast<byte*>(bitmap->HeapBegin()));
@@ -66,6 +66,9 @@ inline size_t CardTable::Scan(ContinuousSpaceBitmap* bitmap, byte* scan_begin, b
       uintptr_t start = reinterpret_cast<uintptr_t>(AddrFromCard(card_cur));
       bitmap->VisitMarkedRange(start, start + kCardSize, visitor);
       ++cards_scanned;
+      if (kClearCard) {
+        *card_cur = 0;
+      }
     }
     ++card_cur;
   }
@@ -95,6 +98,9 @@ inline size_t CardTable::Scan(ContinuousSpaceBitmap* bitmap, byte* scan_begin, b
             << "card " << static_cast<size_t>(*card) << " word " << (start_word & 0xFF);
         bitmap->VisitMarkedRange(start, start + kCardSize, visitor);
         ++cards_scanned;
+        if (kClearCard) {
+          *card = 0;
+        }
       }
       start_word >>= 8;
       start += kCardSize;
@@ -109,6 +115,9 @@ inline size_t CardTable::Scan(ContinuousSpaceBitmap* bitmap, byte* scan_begin, b
       uintptr_t start = reinterpret_cast<uintptr_t>(AddrFromCard(card_cur));
       bitmap->VisitMarkedRange(start, start + kCardSize, visitor);
       ++cards_scanned;
+      if (kClearCard) {
+        *card_cur = 0;
+      }
     }
     ++card_cur;
   }
