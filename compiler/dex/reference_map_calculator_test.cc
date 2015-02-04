@@ -62,7 +62,8 @@ class ReferenceMapCalculatorTest : public MirGraphTest {
       bb->taken = (def->num_successors >= 2) ? def->successors[1] : NullBasicBlockId;
       if (def->num_successors > 2) {
         bb->successor_block_list_type = kCatch;
-        bb->successor_blocks->Resize(def->num_successors);
+        bb->successor_blocks = new (&cu_.arena) GrowableArray<SuccessorBlockInfo*>(
+            &cu_.arena, def->num_successors, kGrowableArraySuccessorBlocks);
         for (size_t j = 2u; j != def->num_successors; ++j) {
           SuccessorBlockInfo* successor_block_info =
               static_cast<SuccessorBlockInfo*>(cu_.arena.Alloc(sizeof(SuccessorBlockInfo),
