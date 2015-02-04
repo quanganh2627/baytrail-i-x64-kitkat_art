@@ -276,6 +276,12 @@ bool ParsedOptions::Parse(const RuntimeOptions& options, bool ignore_unrecognize
   verify_ = true;
   image_isa_ = kRuntimeISA;
 
+  // Initialize Gc profiling parameters, turn off by default.
+  enable_gcprofile_ = false;
+  gcprofile_dir_ = "/data/local/tmp/gcprofile";
+  enable_succ_alloc_profile_ = false;
+  enable_gcprofile_at_start_ = false;
+
   for (size_t i = 0; i < options.size(); ++i) {
     if (true && options[0].first == "-Xzygote") {
       LOG(INFO) << "option[" << i << "]=" << options[i].first;
