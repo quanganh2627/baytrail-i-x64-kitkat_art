@@ -166,6 +166,12 @@ LIBART_COMPILER_SRC_FILES += \
 LIBART_COMPILER_CFLAGS += -DART_USE_PORTABLE_COMPILER=1
 endif
 
+# Add support for Linear Scan Register Allocator
+LSRA := false
+ifeq ($(LSRA),true)
+  LIBART_COMPILER_CFLAGS += -DLSRA
+endif
+
 LIBART_COMPILER_ENUM_OPERATOR_OUT_HEADER_FILES := \
 	dex/compiler_enums.h
 
