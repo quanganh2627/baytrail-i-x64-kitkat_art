@@ -172,7 +172,7 @@ class Heap {
                 bool verify_pre_gc_rosalloc, bool verify_pre_sweeping_rosalloc,
                 bool verify_post_gc_rosalloc, bool use_homogeneous_space_compaction,
                 uint64_t min_interval_homogeneous_space_compaction_by_oom,
-                unsigned int concurrent_gc_cycle_start=0);
+                unsigned int concurrent_gc_cycle_start = 0);
 
   ~Heap();
 
