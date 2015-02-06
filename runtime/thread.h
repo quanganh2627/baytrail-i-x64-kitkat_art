@@ -762,19 +762,19 @@ class Thread {
 
   void RunCheckpointFunction();
 
-  bool ReadFlag(ThreadFlag flag) const {
+  ALWAYS_INLINE bool ReadFlag(ThreadFlag flag) const {
     return (tls32_.state_and_flags.as_struct.flags & flag) != 0;
   }
 
-  bool TestAllFlags() const {
+  ALWAYS_INLINE bool TestAllFlags() const {
     return (tls32_.state_and_flags.as_struct.flags != 0);
   }
 
-  void AtomicSetFlag(ThreadFlag flag) {
+  ALWAYS_INLINE void AtomicSetFlag(ThreadFlag flag) {
     tls32_.state_and_flags.as_atomic_int.FetchAndOrSequentiallyConsistent(flag);
   }
 
-  void AtomicClearFlag(ThreadFlag flag) {
+  ALWAYS_INLINE void AtomicClearFlag(ThreadFlag flag) {
     tls32_.state_and_flags.as_atomic_int.FetchAndAndSequentiallyConsistent(-1 ^ flag);
   }
 
