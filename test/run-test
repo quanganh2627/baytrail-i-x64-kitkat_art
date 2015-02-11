@@ -193,9 +193,6 @@ while true; do
     elif [ "x$1" = "x--speed" ]; then
         run_args="${run_args} --speed"
         shift
-    elif [ "x$1" = "x--O1" ]; then
-        run_args="${run_args} --O1"
-        shift
     elif [ "x$1" = "x--O2" ]; then
         run_args="${run_args} --O2"
         shift

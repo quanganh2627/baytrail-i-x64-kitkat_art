@@ -166,7 +166,7 @@ static void Usage(const char* fmt, ...) {
   UsageError("      Example: --compiler-backend=Portable");
   UsageError("      Default: Quick");
   UsageError("");
-  UsageError("  --compiler-filter=(verify-none|interpret-only|space|balanced|speed|O1|O2|O3|everything):");
+  UsageError("  --compiler-filter=(verify-none|interpret-only|space|balanced|speed|O2|O3|everything):");
   UsageError("      select compiler filter.");
   UsageError("      Example: --compiler-filter=everything");
 #if ART_SMALL_MODE
@@ -1309,8 +1309,6 @@ static int dex2oat(int argc, char** argv) {
     compiler_filter = CompilerOptions::kSpeed;
   } else if (strcmp(compiler_filter_string, "everything") == 0) {
     compiler_filter = CompilerOptions::kEverything;
-  } else if (strcmp(compiler_filter_string, "O1") == 0) {
-    compiler_filter = CompilerOptions::kO1;
   } else if (strcmp(compiler_filter_string, "O2") == 0) {
     compiler_filter = CompilerOptions::kO2;
   } else if (strcmp(compiler_filter_string, "O3") == 0) {
@@ -1322,8 +1320,8 @@ static int dex2oat(int argc, char** argv) {
   // Store the compiler_filter for the selectivity system.
   Selectivity::SetOriginalCompilerFilter(compiler_filter);
 
-  // Enable plugins if using compiler filter level O1 or greater.
-  if (compiler_filter >= CompilerOptions::kO1) {
+  // Enable plugins if using compiler filter level O2 or greater.
+  if (compiler_filter >= CompilerOptions::kO2) {
     // Now load up the plugins.
     LoadUpPlugins(plugin_loading_folder);
   }

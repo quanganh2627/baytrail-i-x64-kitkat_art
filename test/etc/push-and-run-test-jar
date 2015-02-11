@@ -104,8 +104,6 @@ while true; do
         shift
     elif [ "x$1" = "x--speed" ]; then
       FLAGS="${FLAGS} -Xcompiler-option --compiler-filter=speed"
-    elif [ "x$1" = "x--O1" ]; then
-      FLAGS="${FLAGS} -Xcompiler-option --compiler-filter=O1"
     elif [ "x$1" = "x--O2" ]; then
       FLAGS="${FLAGS} -Xcompiler-option --compiler-filter=O2"
     elif [ "x$1" = "x--O3" ]; then

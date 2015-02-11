@@ -37,9 +37,9 @@ void (*dump_selectivity_stats)() = nullptr;
 
 void (*toggle_analysis)(bool setting, std::string disable_passes) = nullptr;
 
-CompilerOptions::CompilerFilter original_compiler_filter = CompilerOptions::kO1;
+CompilerOptions::CompilerFilter original_compiler_filter = CompilerOptions::kO2;
 
-CompilerOptions::CompilerFilter used_compiler_filter = CompilerOptions::kO1;
+CompilerOptions::CompilerFilter used_compiler_filter = CompilerOptions::kO2;
 
 void SetPreCompileSummaryLogic(bool (*function)(CompilerDriver* driver,
                                                              VerificationResults* verification_results)) {
