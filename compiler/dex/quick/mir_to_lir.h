@@ -907,7 +907,7 @@ class Mir2Lir : public Backend {
                                                             RegLocation arg0, RegLocation arg1,
                                                             RegLocation arg2,
                                                             bool safepoint_pc);
-    void GenInvoke(CallInfo* info);
+    bool GenInvoke(CallInfo* info);
     void GenInvokeNoInline(CallInfo* info);
     virtual void FlushIns(RegLocation* ArgLocs, RegLocation rl_method);
     virtual int GenDalvikArgsNoRange(CallInfo* info, int call_state, LIR** pcrLabel,

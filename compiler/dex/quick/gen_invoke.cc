@@ -1712,7 +1712,7 @@ bool Mir2Lir::GenInlinedUnsafePut(CallInfo* info, bool is_long,
   return true;
 }
 
-void Mir2Lir::GenInvoke(CallInfo* info) {
+bool Mir2Lir::GenInvoke(CallInfo* info) {
   if ((info->opt_flags & MIR_INLINED) != 0) {
     // Already inlined but we may still need the null check.
     if (info->type != kStatic &&
@@ -1721,14 +1721,15 @@ void Mir2Lir::GenInvoke(CallInfo* info) {
       RegLocation rl_obj = LoadValue(info->args[0], kRefReg);
       GenNullCheck(rl_obj.reg);
     }
-    return;
+    return false;
   }
   DCHECK(cu_->compiler_driver->GetMethodInlinerMap() != nullptr);
   if (cu_->compiler_driver->GetMethodInlinerMap()->GetMethodInliner(cu_->dex_file)
       ->GenIntrinsic(this, info)) {
-    return;
+    return true;
   }
   GenInvokeNoInline(info);
+  return false;
 }
 
 static LIR* GenInvokeNoInlineCall(Mir2Lir* mir_to_lir, InvokeType type) {
