@@ -1491,7 +1491,7 @@ MonitorInfo::MonitorInfo(mirror::Object* obj) : owner_(NULL), entry_count_(0) {
     case LockWord::kFatLocked: {
       Monitor* mon = lock_word.FatLockMonitor();
       owner_ = mon->owner_;
-      entry_count_ = mon->lock_count_;
+      entry_count_ = 1 + mon->lock_count_;
       for (Thread* waiter = mon->wait_set_; waiter != NULL; waiter = waiter->GetWaitNext()) {
         waiters_.push_back(waiter);
       }
