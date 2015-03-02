@@ -503,26 +503,49 @@ void GcProfiler::DumpRecordLists() {
   std::string suffix = "csv";
   int tail = 0;
   int err = 0;
+  bool tried_data_path = false;
   struct stat buf;
   // Using different suffix for different format.
   if (DumpBinary()) {
     suffix = "b";
   }
-  // Try create output files.
-  for (tail = 0; ; tail++) {
-    snprintf(file_name, sizeof(file_name), "%s/alloc_free_log_%d_%d.%s", data_dir_.c_str(), getpid(), tail, suffix.c_str());
-    err = stat(file_name, &buf);
-    if (err != 0) {
-      LOG(INFO) << file_name <<" will be used";
+  // Find the file path to save profile data. if data_dir not work, using app's private data path.
+  do {
+    // Try create output files.
+    for (tail = 0; ; tail++) {
+      snprintf(file_name, sizeof(file_name), "%s/alloc_free_log_%d_%d.%s", data_dir_.c_str(), getpid(), tail, suffix.c_str());
+      err = stat(file_name, &buf);
+      if (err != 0) {
+        LOG(INFO) << file_name <<" will be used";
+        break;
+      }
+    }
+    // Open profile log file.
+    out_.reset(new std::ofstream(file_name, std::ios::binary));
+    if (!out_->good()) {
+      LOG(WARNING) << "GCProfile: cannot open " << file_name << " " << strerror(errno);
+      // Process data dir, use app's private data path, if can not use the pre-assigned one.
+      if (!tried_data_path) {
+        // Get process name from /proc/self/cmdline.
+        std::ifstream in("/proc/self/cmdline");
+        std::string proc_name;
+        std::string app_data_dir = "/data/data/";
+        if (!in.is_open()) {
+          LOG(ERROR) << "GCProfile: cannot dump data!";
+          return;
+        }
+        getline(in, proc_name);
+        data_dir_ = app_data_dir + proc_name + "/";
+        LOG(WARNING) << "GCProfile: using app data dir: " << data_dir_;
+        tried_data_path = true;
+      } else {
+        LOG(ERROR) << "GCProfile: cannot dump data!";
+        return;
+      }
+    } else {
       break;
     }
-  }
-  // Open profile log file.
-  out_.reset(new std::ofstream(file_name, std::ios::binary));
-  if (!out_->good()) {
-    LOG(ERROR) << "GCProfile: cannot open " << file_name << " " << strerror(errno);
-    return;
-  }
+  } while (true);
 
   // Dump title which contains data unit.
   DumpTitleLine(*out_);
