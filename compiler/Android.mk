@@ -171,6 +171,7 @@ LIBART_COMPILER_ENUM_OPERATOR_OUT_HEADER_FILES := \
 
 # $(1): target or host
 # $(2): ndebug or debug
+# $(3): ncov or cov, whether to generate coverage info stuf
 define build-libart-compiler
   ifneq ($(1),target)
     ifneq ($(1),host)
@@ -182,9 +183,22 @@ define build-libart-compiler
       $$(error expected ndebug or debug for argument 2, received $(2))
     endif
   endif
+  ifeq ($(3),cov)
+    ifneq ($(1),target)
+      $$(error expected target for argument 1 when argument 3 is cov, received $(1))
+    endif
+    ifneq ($(2),ndebug)
+      $$(error expected ndebug for argument 2 when argument 3 is cov, received $(2))
+    endif
+  endif
 
   art_target_or_host := $(1)
   art_ndebug_or_debug := $(2)
+  ifeq ($(3),cov)
+    art_ncov_or_cov := cov
+  else
+    art_ncov_or_cov := ncov
+  endif
 
   include $(CLEAR_VARS)
   LOCAL_LDFLAGS += -Wl,-ldl
@@ -194,7 +208,11 @@ define build-libart-compiler
   endif
   LOCAL_CPP_EXTENSION := $(ART_CPP_EXTENSION)
   ifeq ($$(art_ndebug_or_debug),ndebug)
-    LOCAL_MODULE := libart-compiler
+    ifneq ($$(art_ncov_or_cov),cov)
+      LOCAL_MODULE := libart-compiler
+    else # coverage
+      LOCAL_MODULE := libart-compiler-cov
+    endif
     LOCAL_SHARED_LIBRARIES += libart
     LOCAL_FDO_SUPPORT := true
   else # debug
@@ -233,7 +251,7 @@ $$(SHA_VERSION):
   include external/libcxx/libcxx.mk
   ifeq ($$(art_target_or_host),target)
     $(call set-target-local-clang-vars)
-    $(call set-target-local-cflags-vars,$(2))
+    $(call set-target-local-cflags-vars,$(2),$(3))
   else # host
     LOCAL_CLANG := $(ART_HOST_CLANG)
     LOCAL_CFLAGS += $(ART_HOST_CFLAGS)
@@ -289,7 +307,9 @@ $$(SHA_VERSION):
     ifeq ($$(art_ndebug_or_debug),debug)
       $(TARGET_OUT_EXECUTABLES)/dex2oatd: $$(LOCAL_INSTALLED_MODULE)
     else
-      $(TARGET_OUT_EXECUTABLES)/dex2oat: $$(LOCAL_INSTALLED_MODULE)
+      ifneq ($$(art_ncov_or_cov),cov)
+        $(TARGET_OUT_EXECUTABLES)/dex2oat: $$(LOCAL_INSTALLED_MODULE)
+      endif
     endif
   else # host
     ifeq ($$(art_ndebug_or_debug),debug)
@@ -299,6 +319,8 @@ $$(SHA_VERSION):
     endif
   endif
 
+  # Clear locally defined variables.
+  art_ncov_or_cov :=
 endef
 
 # We always build dex2oat and dependencies, even if the host build is otherwise disabled, since they are used to cross compile for the target.
@@ -328,4 +350,9 @@ endif
 $(DEX2OAT): $(TARGET_OUT_SHARED_LIBRARIES)/libcompiler_rt.a
 
 endif
+endif
+
+# Rules for collecting coverage info of libart-compiler
+ifeq ($(ART_BUILD_TARGET_NDEBUG),true)
+  $(eval $(call build-libart-compiler,target,ndebug,cov))
 endif

@@ -336,6 +336,7 @@ endif
 
 # $(1): target or host
 # $(2): ndebug or debug
+# $(3): ncov or cov, whether to generate coverage info stuf
 define build-libart
   ifneq ($(1),target)
     ifneq ($(1),host)
@@ -347,14 +348,31 @@ define build-libart
       $$(error expected ndebug or debug for argument 2, received $(2))
     endif
   endif
+  ifeq ($(3),cov)
+    ifneq ($(1),target)
+      $$(error expected target for argument 1 when argument 3 is cov, received $(1))
+    endif
+    ifneq ($(2),ndebug)
+      $$(error expected ndebug for argument 2 when argument 3 is cov, received $(2))
+    endif
+  endif
 
   art_target_or_host := $(1)
   art_ndebug_or_debug := $(2)
+  ifeq ($(3),cov)
+    art_ncov_or_cov := cov
+  else
+    art_ncov_or_cov := ncov
+  endif
 
   include $$(CLEAR_VARS)
   LOCAL_CPP_EXTENSION := $$(ART_CPP_EXTENSION)
   ifeq ($$(art_ndebug_or_debug),ndebug)
-    LOCAL_MODULE := libart
+    ifneq ($$(art_ncov_or_cov),cov)
+      LOCAL_MODULE := libart
+    else # coverage
+      LOCAL_MODULE := libart-cov
+    endif
     LOCAL_FDO_SUPPORT := true
   else # debug
     LOCAL_MODULE := libartd
@@ -398,7 +416,7 @@ $$(ENUM_OPERATOR_OUT_GEN): $$(GENERATED_SRC_DIR)/%_operator_out.cc : $(LOCAL_PAT
   # Clang usage
   ifeq ($$(art_target_or_host),target)
     $$(eval $$(call set-target-local-clang-vars))
-    $$(eval $$(call set-target-local-cflags-vars,$(2)))
+    $$(eval $$(call set-target-local-cflags-vars,$(2),$(3)))
     # TODO: Loop with ifeq, ART_TARGET_CLANG
     ifneq ($$(ART_TARGET_CLANG_$$(TARGET_ARCH)),true)
       LOCAL_SRC_FILES_$$(TARGET_ARCH) += $$(LIBART_GCC_ONLY_SRC_FILES)
@@ -471,6 +489,7 @@ $$(ENUM_OPERATOR_OUT_GEN): $$(GENERATED_SRC_DIR)/%_operator_out.cc : $(LOCAL_PAT
   ENUM_OPERATOR_OUT_GEN :=
   art_target_or_host :=
   art_ndebug_or_debug :=
+  art_ncov_or_cov :=
 endef
 
 # We always build dex2oat and dependencies, even if the host build is otherwise disabled, since
@@ -488,6 +507,11 @@ ifeq ($(ART_BUILD_TARGET_NDEBUG),true)
 endif
 ifeq ($(ART_BUILD_TARGET_DEBUG),true)
   $(eval $(call build-libart,target,debug))
+endif
+
+# Rules for collecting coverage info of libart
+ifeq ($(ART_BUILD_TARGET_NDEBUG),true)
+  $(eval $(call build-libart,target,ndebug,cov))
 endif
 
 # Clear locally defined variables.

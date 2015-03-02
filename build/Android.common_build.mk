@@ -373,15 +373,23 @@ endif
 ART_TARGET_DEBUG_CFLAGS := $(art_debug_cflags)
 
 # $(1): ndebug_or_debug
+# $(2): ncov_or_cov
 define set-target-local-cflags-vars
   LOCAL_CFLAGS += $(ART_TARGET_CFLAGS)
   LOCAL_CFLAGS_x86 += $(ART_TARGET_CFLAGS_x86)
   LOCAL_LDFLAGS += $(ART_TARGET_LDFLAGS)
   art_target_cflags_ndebug_or_debug := $(1)
+  art_target_cflags_ncov_or_cov := $(2)
   ifeq ($$(art_target_cflags_ndebug_or_debug),debug)
     LOCAL_CFLAGS += $(ART_TARGET_DEBUG_CFLAGS)
   else
-    LOCAL_CFLAGS += $(ART_TARGET_NON_DEBUG_CFLAGS)
+    ifeq ($$(art_target_cflags_ncov_or_cov),cov)
+      LOCAL_CFLAGS += -O1 -fno-inline -Wframe-larger-than=3100
+      LOCAL_CFLAGS += -fprofile-arcs -ftest-coverage
+      LOCAL_LDFLAGS += --coverage -lgcov
+    else
+      LOCAL_CFLAGS += $(ART_TARGET_NON_DEBUG_CFLAGS)
+    endif
   endif
 
   # TODO: Also set when ART_TARGET_CLANG_$(arch)!=false and ART_TARGET_CLANG==true
@@ -392,6 +400,7 @@ define set-target-local-cflags-vars
 
   # Clear locally used variables.
   art_target_cflags_ndebug_or_debug :=
+  art_target_cflags_ncov_or_cov :=
 endef
 
 ART_BUILD_TARGET := false
