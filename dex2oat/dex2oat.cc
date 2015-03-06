@@ -949,7 +949,7 @@ static int dex2oat(int argc, char** argv) {
   bool watch_dog_enabled = true;
   bool generate_gdb_information = kIsDebugBuild;
   bool use_selectivity_analysis = true;
-  uint32_t app_dex_opcode_limit = SELECTIVITY_DEFAULT_PER_APP_DEX_LIMIT;
+  uint64_t app_dex_opcode_limit = SELECTIVITY_DEFAULT_PER_APP_DEX_LIMIT;
 
   // Checks are all explicit until we know the architecture.
   bool implicit_null_checks = false;
@@ -1005,26 +1005,26 @@ static int dex2oat(int argc, char** argv) {
       for (uint32_t i = 0; i < parsed.size() && !finished_parsing_sel_options; ++i) {
         switch (i) {
           case 0: {
-                    if (parsed[i] == "off") {
-                      use_selectivity_analysis = false;
-                      finished_parsing_sel_options = true;
-                    } else if (parsed[i] == "app") {
-                      use_selectivity_analysis = true;
-                    } else {
-                      Usage("illegal argument for --sel-options index %d value %s", i , parsed[i].c_str());
-                    }
-                    break;
-                  }
+            if (parsed[i] == "off") {
+              use_selectivity_analysis = false;
+              finished_parsing_sel_options = true;
+            } else if (parsed[i] == "app") {
+              use_selectivity_analysis = true;
+            } else {
+              Usage("illegal argument for --sel-options index %d value %s", i , parsed[i].c_str());
+            }
+            break;
+          }
           case 1: {
-                    const char* app_dex_limit_str = parsed[i].c_str();
-                    if (!ParseInt(app_dex_limit_str, &app_dex_opcode_limit)) {
-                      Usage("Failed to parse app dex limit argument '%s' as an integer", parsed[i].c_str());
-                    }
-                    break;
-                  }
+            const char* app_dex_limit_str = parsed[i].c_str();
+            if (!ParseUint(app_dex_limit_str, &app_dex_opcode_limit)) {
+              Usage("Failed to parse app dex limit argument '%s' as an integer", parsed[i].c_str());
+            }
+            break;
+          }
           default:
-                  Usage("Too many arguments for --sel-options index %d value %s", i , parsed[i].c_str());
-                  break;
+            Usage("Too many arguments for --sel-options index %d value %s", i , parsed[i].c_str());
+            break;
         }
       }
     } else if (option.starts_with("--oat-fd=")) {

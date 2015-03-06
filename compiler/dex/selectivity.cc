@@ -18,30 +18,30 @@
 namespace art {
 namespace Selectivity {
 // Initialize the function pointers.
-bool (*precompile_summary_logic)(CompilerDriver* driver,
+static bool (*precompile_summary_logic)(CompilerDriver* driver,
                                               VerificationResults* verification_results) = nullptr;
 
-bool (*skip_class_compile)(const DexFile& dex_file,
+static bool (*skip_class_compile)(const DexFile& dex_file,
                                         const DexFile::ClassDef&) = nullptr;
 
-bool (*skip_method_compile)(const DexFile::CodeItem* code_item,
+static bool (*skip_method_compile)(const DexFile::CodeItem* code_item,
                                          uint32_t method_idx, uint32_t* access_flags,
                                          uint16_t* class_def_idx, const DexFile& dex_file,
                                          DexToDexCompilationLevel* dex_to_dex_compilation_level) = nullptr;
 
-void (*analyze_resolved_method)(mirror::ArtMethod* method, const DexFile& dex_file) = nullptr;
+static void (*analyze_resolved_method)(mirror::ArtMethod* method, const DexFile& dex_file) = nullptr;
 
-void (*analyze_verified_method)(verifier::MethodVerifier* verifier) = nullptr;
+static void (*analyze_verified_method)(verifier::MethodVerifier* verifier) = nullptr;
 
-void (*dump_selectivity_stats)() = nullptr;
+static void (*dump_selectivity_stats)() = nullptr;
 
-void (*toggle_analysis)(bool setting, std::string disable_passes) = nullptr;
+static void (*toggle_analysis)(bool setting, std::string disable_passes) = nullptr;
 
-CompilerOptions::CompilerFilter original_compiler_filter = CompilerOptions::kO2;
+static CompilerOptions::CompilerFilter original_compiler_filter = CompilerOptions::kO2;
 
-CompilerOptions::CompilerFilter used_compiler_filter = CompilerOptions::kO2;
+static CompilerOptions::CompilerFilter used_compiler_filter = CompilerOptions::kO2;
 
-static uint32_t per_app_dex_limit_ = SELECTIVITY_DEFAULT_PER_APP_DEX_LIMIT;
+static uint64_t per_app_dex_limit_ = SELECTIVITY_DEFAULT_PER_APP_DEX_LIMIT;
 
 void SetPreCompileSummaryLogic(bool (*function)(CompilerDriver* driver,
                                                              VerificationResults* verification_results)) {
@@ -161,11 +161,11 @@ void SetUsedCompilerFilter(CompilerOptions::CompilerFilter filter) {
   used_compiler_filter = filter;
 }
 
-void SetPerAppDexLimit(uint32_t dex_limit) {
+void SetPerAppDexLimit(uint64_t dex_limit) {
   per_app_dex_limit_ = dex_limit;
 }
 
-uint32_t GetPerAppDexLimit() {
+uint64_t GetPerAppDexLimit() {
   return per_app_dex_limit_;
 }
 }  // namespace Selectivity
