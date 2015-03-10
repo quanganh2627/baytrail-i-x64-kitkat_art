@@ -315,8 +315,8 @@ void FailAllocRecord::FillFields(mirror::Class* klass,
   gc_id_ = gc_id;
   size_ = alloc_size;
   last_gc_type_ = gc_type;
-  int length = Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).size() + 1;
-  length = length <= 256 ? length : 256;
+  unsigned long length = Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).size() + 1;
+  length = length <= (sizeof(type_) - 1) ? length : (sizeof(type_) - 1);
   strncpy(type_, Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).c_str(), length);
   // If there is segmentation, set corresponding phase.
   if (free_size > alloc_size && fail_phase <= kFailUntilGCForAllocClearRef) {
@@ -349,8 +349,8 @@ void LargeObjAllocRecord::DumpRecord(std::ofstream& os) {
 void LargeObjAllocRecord::FillFields(uint32_t gc_id, uint32_t byte_count, mirror::Class* klass) {
   gc_id_ = gc_id;
   size_ = byte_count;
-  int length = Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).size() + 1;
-  length = length <= 256 ? length : 256;
+  unsigned long length = Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).size() + 1;
+  length = length <= (sizeof(type_) - 1) ? length : (sizeof(type_) - 1);
   strncpy(type_, Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).c_str(), length);
 }
 
@@ -600,10 +600,10 @@ void GcProfiler::InsertNewGcRecord(const GcCause gc_cause, const collector::GcTy
       record->FillBasicInfo(gc_id_++, gc_cause, gc_type, gc_start_time_ns, footprint,
                             bytes_allocated, main_space_size, los_space_size);
       gc_record_list_.InsertRecord(reinterpret_cast<ProfileRecord*>(record));
-    }
-    // Create success allocation record if necessory.
-    if (prof_succ_allocation_) {
-      CreateSuccAllocRecord(record->GetGcId());
+      // Create success allocation record if necessory.
+      if (prof_succ_allocation_) {
+        CreateSuccAllocRecord(record->GetGcId());
+      }
     }
   }
 }
@@ -662,9 +662,9 @@ void GcProfiler::InsertSuccAllocRecord(uint32_t byte_count, mirror::Class* klass
     SuccAllocRecord* record = reinterpret_cast<SuccAllocRecord*>(succ_record_list_.GetLastRecord());
     if (record != nullptr) {
       record->FillFields(byte_count);
-    }
-    if (byte_count >= Heap::kDefaultLargeObjectThreshold && klass->IsPrimitiveArray()) {
-      InsertLargeObjAllocRecord(record->GetGcId(), byte_count, klass);
+      if (byte_count >= Heap::kDefaultLargeObjectThreshold && klass->IsPrimitiveArray()) {
+        InsertLargeObjAllocRecord(record->GetGcId(), byte_count, klass);
+      }
     }
   }
 }

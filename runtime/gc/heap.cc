@@ -1287,7 +1287,7 @@ mirror::Object* Heap::AllocateInternalWithGc(Thread* self, AllocatorType allocat
     mirror::Object* ptr = TryToAllocate<true, false>(self, allocator, alloc_size, bytes_allocated,
                                                      usable_size);
     if (ptr != nullptr) {
-      if (Runtime::Current()->EnabledGcProfile()) {
+      if (Runtime::Current()->EnabledGcProfile() && gc_profiler != nullptr && klass != nullptr) {
         // Set fail allocation record.
         gc_profiler->CreateFailRecord(*klass, GetBytesAllocated(), max_allowed_footprint_,
                                      alloc_size, last_gc, kFailUntilGCConcurrent);
@@ -1306,7 +1306,7 @@ mirror::Object* Heap::AllocateInternalWithGc(Thread* self, AllocatorType allocat
     mirror::Object* ptr = TryToAllocate<true, false>(self, allocator, alloc_size, bytes_allocated,
                                                      usable_size);
     if (ptr != nullptr) {
-      if (Runtime::Current()->EnabledGcProfile()) {
+      if (Runtime::Current()->EnabledGcProfile() && gc_profiler != nullptr && klass != nullptr) {
         // Set fail allocation record.
         gc_profiler->CreateFailRecord(*klass, GetBytesAllocated(), max_allowed_footprint_,
                                      alloc_size, tried_type, kFailUntilGCForAlloc);
@@ -1331,7 +1331,7 @@ mirror::Object* Heap::AllocateInternalWithGc(Thread* self, AllocatorType allocat
       mirror::Object* ptr = TryToAllocate<true, false>(self, allocator, alloc_size, bytes_allocated,
                                                        usable_size);
       if (ptr != nullptr) {
-        if (Runtime::Current()->EnabledGcProfile()) {
+        if (Runtime::Current()->EnabledGcProfile() && gc_profiler != nullptr && klass != nullptr) {
           // Set fail allocation record.
           gc_profiler->CreateFailRecord(*klass, GetBytesAllocated(), max_allowed_footprint_,
                                        alloc_size, gc_type, kFailUntilGCForAlloc);
@@ -1345,7 +1345,7 @@ mirror::Object* Heap::AllocateInternalWithGc(Thread* self, AllocatorType allocat
   mirror::Object* ptr = TryToAllocate<true, true>(self, allocator, alloc_size, bytes_allocated,
                                                   usable_size);
   if (ptr != nullptr) {
-    if (Runtime::Current()->EnabledGcProfile()) {
+    if (Runtime::Current()->EnabledGcProfile() && gc_profiler != nullptr && klass != nullptr) {
       // Set fail allocation record.
       gc_profiler->CreateFailRecord(*klass, GetBytesAllocated(), max_allowed_footprint_,
                                    alloc_size, gc_plan_.back(), kFailUntilAllocGrowHeap);
@@ -1437,7 +1437,7 @@ mirror::Object* Heap::AllocateInternalWithGc(Thread* self, AllocatorType allocat
   }
   // If the allocation hasn't succeeded by this point, throw an OOM error.
   if (ptr == nullptr) {
-    if (Runtime::Current()->EnabledGcProfile()) {
+    if (Runtime::Current()->EnabledGcProfile() && gc_profiler != nullptr && klass != nullptr) {
       // Set fail record as OOM.
       gc_profiler->CreateFailRecord(*klass, GetBytesAllocated(), max_allowed_footprint_,
                                    alloc_size, gc_plan_.back(), kFailThrowGCOOM);
@@ -1445,7 +1445,7 @@ mirror::Object* Heap::AllocateInternalWithGc(Thread* self, AllocatorType allocat
 
     ThrowOutOfMemoryError(self, alloc_size, allocator);
   }
-  if (Runtime::Current()->EnabledGcProfile()) {
+  if (Runtime::Current()->EnabledGcProfile() && gc_profiler != nullptr && klass != nullptr) {
     // Set fail record.
     gc_profiler->CreateFailRecord(*klass, GetBytesAllocated(), max_allowed_footprint_,
                                  alloc_size, gc_plan_.back(), kFailUntilGCForAllocClearRef);
@@ -2244,7 +2244,7 @@ collector::GcType Heap::CollectGarbageInternal(collector::GcType gc_type, GcCaus
       << "Could not find garbage collector with collector_type="
       << static_cast<size_t>(collector_type_) << " and gc_type=" << gc_type;
 
-  if (Runtime::Current()->EnabledGcProfile()) {
+  if (Runtime::Current()->EnabledGcProfile() && gc_profiler != nullptr) {
     // Create a gc record and insert to Record list.
     gc_profiler->InsertNewGcRecord(gc_cause, gc_type, gc_start_time_ns, GetBytesAllocated(),
                                    max_allowed_footprint_, main_space_->Size(),
@@ -2290,7 +2290,7 @@ collector::GcType Heap::CollectGarbageInternal(collector::GcType gc_type, GcCaus
               << " total " << PrettyDuration((duration / 1000) * 1000);
     VLOG(heap) << ConstDumpable<TimingLogger>(*current_gc_iteration_.GetTimings());
   }
-  if (Runtime::Current()->EnabledGcProfile()) {
+  if (Runtime::Current()->EnabledGcProfile() && gc_profiler != nullptr) {
     // Fill the gc record info.
     gc_profiler->FillGcRecordInfo(collector, max_allowed_footprint_,
                                  concurrent_start_bytes_, allocation_stack_->Size(),
