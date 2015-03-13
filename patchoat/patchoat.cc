@@ -46,10 +46,7 @@
 #include "scoped_thread_state_change.h"
 #include "thread.h"
 #include "utils.h"
-
-#include "7zFile.h"
-#include "7zVersion.h"
-#include "LzmaDec.h"
+#include "zip_archive.h"
 
 namespace art {
 
@@ -823,15 +820,15 @@ static void Usage(const char *fmt, ...) {
   UsageError("  --input-oat-fd=<file-descriptor>: Specifies the file-descriptor of the oat file");
   UsageError("      to be patched.");
   UsageError("");
-  UsageError("  --input-oat-lzma-file=<file.oat.lzma>: Specifies the exact filename of");
-  UsageError("      the lzma-compressed oat file to be patched.");
+  UsageError("  --input-oat-zip-file=<file.oat.zip>: Specifies the exact filename of");
+  UsageError("      the zip-compressed oat file to be patched.");
   UsageError("");
-  UsageError("  --input-oat-lzma-fd=<file-descriptor>: Specifies the file-descriptor of");
-  UsageError("      the lzma-compressed oat file to be patched.");
+  UsageError("  --input-oat-zip-fd=<file-descriptor>: Specifies the file-descriptor of");
+  UsageError("      the zip-compressed oat file to be patched.");
   UsageError("");
-  UsageError("  --swap-file=<file-name>:  specifies a temporary lzma file.");
+  UsageError("  --swap-file=<file-name>: Specifies a temporary zip file.");
   UsageError("");
-  UsageError("  --swap-fd=<file-descriptor>:  specifies a temporary lzma file descriptor.");
+  UsageError("  --swap-fd=<file-descriptor>: Specifies a temporary zip file descriptor.");
   UsageError("");
   UsageError("  --input-oat-location=<file.oat>: Specifies the 'location' to read the patched");
   UsageError("      oat file from. If used one must also supply the --instruction-set");
@@ -941,147 +938,49 @@ static bool FinishFile(File* file, bool close) {
   }
 }
 
-static void *SzAlloc(void *p, size_t size) {
-  UNUSED(p);
-  return malloc(size);
-}
+static int Inflate(int input_oat_zip_fd, const std::string& input_oat_zip_filename, int tmp_fd, std::string* err) {
+  std::unique_ptr<ZipArchive> zip_archive(input_oat_zip_fd != -1 ?
+                     ZipArchive::OpenFromFd(input_oat_zip_fd, input_oat_zip_filename.c_str(), err) :
+                     ZipArchive::Open(input_oat_zip_filename.c_str(), err));
 
-static void SzFree(void *p, void *address) {
-  UNUSED(p);
-  free(address);
-}
-
-static ISzAlloc decode_alloc = { SzAlloc, SzFree };
-
-#define IN_BUF_SIZE (1 << 16)
-#define OUT_BUF_SIZE (1 << 16)
-
-static SRes Decode2(CLzmaDec *state, ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 unpackSize) {
-  int thereIsSize = (unpackSize != (UInt64)(Int64)-1);
-  std::unique_ptr<Byte[]> inBuf(new Byte[IN_BUF_SIZE]);
-  std::unique_ptr<Byte[]> outBuf(new Byte[OUT_BUF_SIZE]);
-  size_t inPos = 0, inSize = 0, outPos = 0;
-  LzmaDec_Init(state);
-  for (;;) {
-    if (inPos == inSize) {
-      inSize = IN_BUF_SIZE;
-      RINOK(inStream->Read(inStream, inBuf.get(), &inSize));
-      inPos = 0;
-    }
-
-    {
-      SRes res;
-      SizeT inProcessed = inSize - inPos;
-      SizeT outProcessed = OUT_BUF_SIZE - outPos;
-      ELzmaFinishMode finishMode = LZMA_FINISH_ANY;
-      ELzmaStatus status;
-      if (thereIsSize && outProcessed > unpackSize) {
-        outProcessed = (SizeT)unpackSize;
-        finishMode = LZMA_FINISH_END;
-      }
-
-      res = LzmaDec_DecodeToBuf(state, outBuf.get() + outPos, &outProcessed,
-        inBuf.get() + inPos, &inProcessed, finishMode, &status);
-      inPos += inProcessed;
-      outPos += outProcessed;
-      unpackSize -= outProcessed;
-
-      if (outStream) {
-        if (outStream->Write(outStream, outBuf.get(), outPos) != outPos) {
-          return SZ_ERROR_WRITE;
-        }
-      }
-
-      outPos = 0;
-
-      if (res != SZ_OK || (thereIsSize && unpackSize == 0)) {
-        return res;
-      }
-
-      if (inProcessed == 0 && outProcessed == 0) {
-        if (thereIsSize || status != LZMA_STATUS_FINISHED_WITH_MARK) {
-          return SZ_ERROR_DATA;
-        }
-        return res;
-      }
-    }
-  }
-}
-
-static SRes Decode(ISeqOutStream *outStream, ISeqInStream *inStream) {
-  UInt64 unpackSize;
-  int i;
-  SRes res = 0;
-
-  CLzmaDec state;
-
-  // header: 5 bytes of LZMA properties and 8 bytes of uncompressed size
-  unsigned char header[LZMA_PROPS_SIZE + 8];
-
-  // Read and parse header
-  RINOK(SeqInStream_Read(inStream, header, sizeof(header)));
-
-  unpackSize = 0;
-  for (i = 0; i < 8; i++)
-    unpackSize += (UInt64)header[LZMA_PROPS_SIZE + i] << (i * 8);
-
-  LzmaDec_Construct(&state);
-  RINOK(LzmaDec_Allocate(&state, header, LZMA_PROPS_SIZE, &decode_alloc));
-  res = Decode2(&state, outStream, inStream, unpackSize);
-  LzmaDec_Free(&state, &decode_alloc);
-  return res;
-}
-
-static int Inflate(int input_oat_lzma_fd, const std::string& input_oat_lzma_filename, int tmp_fd, std::string* err) {
-  CFileSeqInStream inStream;
-  CFileOutStream outStream;
-
-  FileSeqInStream_CreateVTable(&inStream);
-  File_Construct(&inStream.file);
-
-  FileOutStream_CreateVTable(&outStream);
-  File_Construct(&outStream.file);
-
-  inStream.file.file = input_oat_lzma_fd != -1
-                     ? fdopen(input_oat_lzma_fd, "rb")
-                     : fopen(input_oat_lzma_filename.c_str(), "rb");
-
-  if (inStream.file.file == NULL) {
-    err->assign(input_oat_lzma_fd != -1 ?
-                StringPrintf("fd=%d: %s", input_oat_lzma_fd, strerror(errno)) :
-                StringPrintf("%s: %s", input_oat_lzma_filename.c_str(), strerror(errno)));
+  if (zip_archive.get() == nullptr) {
     return -1;
   }
 
-  outStream.file.file = fdopen(tmp_fd, "wb");
-  if (outStream.file.file == NULL) {
+  std::unique_ptr<ZipEntry> zip_entry(zip_archive->Find("odex", err));
+  if (zip_entry.get() == nullptr) {
+    *err = input_oat_zip_fd == -1 ?
+               StringPrintf("Could not find zip entry with name 'odex' within '%s': %s",
+                            input_oat_zip_filename.c_str(), err->c_str()) :
+               StringPrintf("Could not find zip entry with name 'odex', fd=%d: %s",
+                            input_oat_zip_fd, err->c_str());
+    return -1;
+  }
+
+  int out_fd = dup(tmp_fd);
+  if (out_fd == -1) {
+    *err = strerror(errno);
+    return -1;
+  }
+
+  std::unique_ptr<File> out_file(new File(out_fd, false));
+  CHECK(out_file.get() != nullptr);
+  if (out_file.get() == nullptr) {
     err->assign(StringPrintf("Could not open tmp file fd=%d: %s", tmp_fd, strerror(errno)));
-    File_Close(&inStream.file);
     return -1;
   }
 
-  int decode_result = Decode(&outStream.s, &inStream.s);
-
-  File_Close(&inStream.file);
-
-  if (decode_result != SZ_OK) {
-    File_Close(&outStream.file);
-    err->assign(
-          decode_result == SZ_ERROR_MEM ? "Can not allocate memory" :
-          decode_result == SZ_ERROR_DATA ? "Data error" :
-          decode_result == SZ_ERROR_WRITE ? "Can not write output file" :
-          decode_result == SZ_ERROR_READ ? "Can not read input file" :
-          StringPrintf("Error code: %d", decode_result));
+  if (!zip_entry->ExtractToFile(*out_file, err)) {
     return -1;
   }
 
-  // flush the stream
-  int fd = dup(tmp_fd);
-  File_Close(&outStream.file);
-  if (fd == -1) {
-    err->assign(strerror(errno));
+  if (out_file->Flush() != 0) {
+    *err = StringPrintf("Could not flush tmp file file fd=%d", tmp_fd);
+    return -1;
   }
-  return fd;
+
+  out_file->DisableAutoClose();
+  return out_fd;
 }
 
 static int patchoat(int argc, char **argv) {
@@ -1108,10 +1007,10 @@ static int patchoat(int argc, char **argv) {
   bool isa_set = false;
   InstructionSet isa = kNone;
   std::string input_oat_filename;
-  std::string input_oat_lzma_filename;
+  std::string input_oat_zip_filename;
   std::string input_oat_location;
   int input_oat_fd = -1;
-  int input_oat_lzma_fd = -1;
+  int input_oat_zip_fd = -1;
   std::string swap_file_name;
   int swap_fd = -1;
   bool have_input_oat = false;
@@ -1148,29 +1047,29 @@ static int patchoat(int argc, char **argv) {
       }
     } else if (option.starts_with("--input-oat-location=")) {
       if (have_input_oat) {
-        Usage("Only one of --input-oat-file, --input-oat-lzma-file, --input-oat-location, "
-              "--input-oat-fd and --input-oat-lzma-fd may be used.");
+        Usage("Only one of --input-oat-file, --input-oat-zip-file, --input-oat-location, "
+              "--input-oat-fd and --input-oat-zip-fd may be used.");
       }
       have_input_oat = true;
       input_oat_location = option.substr(strlen("--input-oat-location=")).data();
     } else if (option.starts_with("--input-oat-file=")) {
       if (have_input_oat) {
-        Usage("Only one of --input-oat-file, --input-oat-lzma-file, --input-oat-location, "
-              "--input-oat-fd and --input-oat-lzma-fd may be used.");
+        Usage("Only one of --input-oat-file, --input-oat-zip-file, --input-oat-location, "
+              "--input-oat-fd and --input-oat-zip-fd may be used.");
       }
       have_input_oat = true;
       input_oat_filename = option.substr(strlen("--input-oat-file=")).data();
-    } else if (option.starts_with("--input-oat-lzma-file=")) {
+    } else if (option.starts_with("--input-oat-zip-file=")) {
       if (have_input_oat) {
-        Usage("Only one of --input-oat-file, --input-oat-lzma-file, --input-oat-location, "
-              "--input-oat-fd and --input-oat-lzma-fd may be used.");
+        Usage("Only one of --input-oat-file, --input-oat-zip-file, --input-oat-location, "
+              "--input-oat-fd and --input-oat-zip-fd may be used.");
       }
       have_input_oat = true;
-      input_oat_lzma_filename = option.substr(strlen("--input-oat-lzma-file=")).data();
+      input_oat_zip_filename = option.substr(strlen("--input-oat-zip-file=")).data();
     } else if (option.starts_with("--input-oat-fd=")) {
       if (have_input_oat) {
-        Usage("Only one of --input-oat-file, --input-oat-lzma-file, --input-oat-location, "
-              "--input-oat-fd and --input-oat-lzma-fd may be used.");
+        Usage("Only one of --input-oat-file, --input-oat-zip-file, --input-oat-location, "
+              "--input-oat-fd and --input-oat-zip-fd may be used.");
       }
       have_input_oat = true;
       const char* oat_fd_str = option.substr(strlen("--input-oat-fd=")).data();
@@ -1180,18 +1079,18 @@ static int patchoat(int argc, char **argv) {
       if (input_oat_fd < 0) {
         Usage("--input-oat-fd pass a negative value %d", input_oat_fd);
       }
-    } else if (option.starts_with("--input-oat-lzma-fd=")) {
+    } else if (option.starts_with("--input-oat-zip-fd=")) {
       if (have_input_oat) {
-        Usage("Only one of --input-oat-file, --input-oat-lzma-file, --input-oat-location, "
-              "--input-oat-fd and --input-oat-lzma-fd may be used.");
+        Usage("Only one of --input-oat-file, --input-oat-zip-file, --input-oat-location, "
+              "--input-oat-fd and --input-oat-zip-fd may be used.");
       }
       have_input_oat = true;
-      const char* oat_lzma_fd_str = option.substr(strlen("--input-oat-lzma-fd=")).data();
-      if (!ParseInt(oat_lzma_fd_str, &input_oat_lzma_fd)) {
-        Usage("Failed to parse --input-oat-fd argument '%s' as an integer", oat_lzma_fd_str);
+      const char* oat_zip_fd_str = option.substr(strlen("--input-oat-zip-fd=")).data();
+      if (!ParseInt(oat_zip_fd_str, &input_oat_zip_fd)) {
+        Usage("Failed to parse --input-oat-fd argument '%s' as an integer", oat_zip_fd_str);
       }
-      if (input_oat_lzma_fd < 0) {
-        Usage("--input-oat-lzma-fd pass a negative value %d", input_oat_lzma_fd);
+      if (input_oat_zip_fd < 0) {
+        Usage("--input-oat-zip-fd pass a negative value %d", input_oat_zip_fd);
       }
     } else if (option.starts_with("--swap-file=")) {
       swap_file_name = option.substr(strlen("--swap-file=")).data();
@@ -1301,9 +1200,9 @@ static int patchoat(int argc, char **argv) {
     Usage("Either both input and output image must be supplied or niether must be.");
   }
 
-  if ((input_oat_lzma_fd != -1 || !input_oat_lzma_filename.empty()) !=
+  if ((input_oat_zip_fd != -1 || !input_oat_zip_filename.empty()) !=
       (swap_fd != -1 || !swap_file_name.empty())) {
-    Usage("Either both input lzma and swap must be supplied or niether must be.");
+    Usage("Either both input zip and swap must be supplied or niether must be.");
   }
 
   // We know we have both the input and output so rename for clarity.
@@ -1427,15 +1326,16 @@ static int patchoat(int argc, char **argv) {
   }
 
   if (have_oat_files) {
-    if (input_oat_lzma_fd != -1 || !input_oat_lzma_filename.empty()) {
+    if (input_oat_zip_fd != -1 || !input_oat_zip_filename.empty()) {
       std::string err;
-      input_oat_fd = Inflate(input_oat_lzma_fd, input_oat_lzma_filename, swap_fd, &err);
+      input_oat_fd = Inflate(input_oat_zip_fd, input_oat_zip_filename, swap_fd, &err);
       if (input_oat_fd == -1) {
         LOG(ERROR) << "Failed to inflate input file: " << err;
       }
     }
     if (input_oat_fd != -1) {
       if (input_oat_filename.empty()) {
+        // TODO: make sure this will not be used to create symlink if input_oat_fd is PIC
         input_oat_filename = "input-oat-file";
       }
       input_oat.reset(new File(input_oat_fd, input_oat_filename, false));
