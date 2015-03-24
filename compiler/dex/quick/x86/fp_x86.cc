@@ -35,8 +35,8 @@ bool X86Mir2Lir::GenInlined##FUNC_NAME(CallInfo* info) { \
 #define INLINED_EXTRA_MATH_2ARG(FUNC_NAME) \
 bool X86Mir2Lir::GenInlined##FUNC_NAME(CallInfo* info) { \
   FlushAllRegs(); \
-  RegLocation rl_src1 = LoadValueWide(info->args[0], kFPReg); \
-  RegLocation rl_src2 = LoadValueWide(info->args[2], kFPReg); \
+  RegLocation rl_src1 = info->args[0]; \
+  RegLocation rl_src2 = info->args[2]; \
   RegLocation rl_dest = InlineTargetWide(info); \
   CallRuntimeHelperRegLocationRegLocation(QuickEntrypointEnum::kQuick##FUNC_NAME, rl_src1, rl_src2, false); \
   RegLocation rl_result = GetReturnWide(kFPReg); \
