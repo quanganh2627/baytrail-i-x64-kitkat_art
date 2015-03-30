@@ -315,9 +315,10 @@ void FailAllocRecord::FillFields(mirror::Class* klass,
   gc_id_ = gc_id;
   size_ = alloc_size;
   last_gc_type_ = gc_type;
-  unsigned long length = Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).size() + 1;
+  std::string klass_str = Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass);
+  unsigned long length = klass_str.size() + 1;
   length = length <= (sizeof(type_) - 1) ? length : (sizeof(type_) - 1);
-  strncpy(type_, Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).c_str(), length);
+  strncpy(type_, klass_str.c_str(), length);
   // If there is segmentation, set corresponding phase.
   if (free_size > alloc_size && fail_phase <= kFailUntilGCForAllocClearRef) {
     phase_ = (AllocFailPhase)(fail_phase + 4);
@@ -349,9 +350,10 @@ void LargeObjAllocRecord::DumpRecord(std::ofstream& os) {
 void LargeObjAllocRecord::FillFields(uint32_t gc_id, uint32_t byte_count, mirror::Class* klass) {
   gc_id_ = gc_id;
   size_ = byte_count;
-  unsigned long length = Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).size() + 1;
+  std::string klass_str = Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass);
+  unsigned long length = klass_str.size() + 1;
   length = length <= (sizeof(type_) - 1) ? length : (sizeof(type_) - 1);
-  strncpy(type_, Runtime::Current()->GetHeap()->SafeGetClassDescriptor(klass).c_str(), length);
+  strncpy(type_, klass_str.c_str(), length);
 }
 
 // Sum up the number of bytes and counts of allocted objects.
