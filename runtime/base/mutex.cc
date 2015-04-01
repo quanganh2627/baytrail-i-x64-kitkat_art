@@ -720,7 +720,7 @@ void ConditionVariable::Broadcast(Thread* self) {
       int32_t cur_sequence = sequence_.LoadRelaxed();
       // Requeue waiters onto mutex. The waiter holds the contender count on the mutex high ensuring
       // mutex unlocks will awaken the requeued waiter thread.
-      done = futex(sequence_.Address(), FUTEX_CMP_REQUEUE, 0,
+      done = futex6(sequence_.Address(), FUTEX_CMP_REQUEUE, 0,
                    reinterpret_cast<const timespec*>(std::numeric_limits<int32_t>::max()),
                    guard_.state_.Address(), cur_sequence) != -1;
       if (!done) {
