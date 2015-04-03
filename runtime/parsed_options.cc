@@ -190,7 +190,6 @@ bool ParsedOptions::Parse(const RuntimeOptions& options, bool ignore_unrecognize
   parallel_gc_threads_ = sysconf(_SC_NPROCESSORS_CONF) - 1;
   // Only the main GC thread, no workers.
   conc_gc_threads_ = 0;
-  concurrent_gc_cycle_start_ = 0;
   // The default GC type is set in makefiles.
 #if ART_DEFAULT_GC_TYPE_IS_CMS
   collector_type_ = gc::kCollectorTypeCMS;
@@ -384,10 +383,6 @@ bool ParsedOptions::Parse(const RuntimeOptions& options, bool ignore_unrecognize
       }
     } else if (StartsWith(option, "-XX:ConcGCThreads=")) {
       if (!ParseUnsignedInteger(option, '=', &conc_gc_threads_)) {
-        return false;
-      }
-    } else if (StartsWith(option, "-XX:ConcurrentGCCycleStart=")) {
-      if (!ParseUnsignedInteger(option, '=', &concurrent_gc_cycle_start_)) {
         return false;
       }
     } else if (StartsWith(option, "-Xss")) {
